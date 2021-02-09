@@ -26,3 +26,4 @@ library("GENESIS") # Bioconductor package. Package version: 2.12.2
 library("snpStats") # Bioconductor package. Package version: 1.32.0   
 
 
+Depending on your setup you can either 
