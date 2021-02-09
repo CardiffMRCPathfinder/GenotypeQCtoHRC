@@ -1,6 +1,6 @@
 # GenotypeQCtoHRC
 
-Overview: This automated pipeline is designed to perform stringent quality control of genotype data in ped/map or bed/bim/fam format, align against the Haplotype Reference Consortium V1.1 reference panel and output in compressedd vcf.gz format ready for imputation. Each pipeline produces an Rmd QC report, which gives you information regarding number of individuals SNPs excluded based on user parameters, sex discrepencies, relatedness adjusted PCAs and ancestry information. 
+Overview: This automated Rmd pipeline is designed to perform stringent quality control of genotype data in ped/map or bed/bim/fam format, align against the Haplotype Reference Consortium V1.1 reference panel and output in compressedd vcf.gz format ready for imputation. Each pipeline produces an Rmd QC report, which gives you information regarding number of individuals SNPs excluded based on user parameters, sex discrepencies, relatedness adjusted PCAs and ancestry information. 
 
 
 
@@ -27,3 +27,13 @@ library("snpStats") # Bioconductor package. Package version: 1.32.0
 
 
 Depending on your setup you can either 
+
+# Walkthrough
+
+1) Download 1000 genomes genotype data
+2) 
+
+
+
+
+5) The generated HTML QC report is in this file: 
