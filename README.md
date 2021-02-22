@@ -28,10 +28,20 @@ library("snpStats") # Bioconductor package. Package version: 1.32.0
 library("knitr")  
 library("prettydoc")  
 
+# Other required software
+plink1.9  
+plink2  
+DosageConvertor  
+liftover  
+
+# Other required files
+SNP coordinates / builds across platforms:  
+HRC v1.1 SNP information: ftp://ngs.sanger.ac.uk/production/hrc/HRC.r1-1/HRC.r1-1.GRCh37.wgs.mac5.sites.tab.gz
+
 # Walkthrough
 
 1) Download 1000 genomes genotype data
-2) 
+2) Run the pipeline using this command:
 
 
 
