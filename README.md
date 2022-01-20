@@ -73,9 +73,9 @@ library("prettydoc")
 # Other software 
 plink1.9  
 plink2  
-GenotypeHarmonizer
-vcf-sort
+GenotypeHarmonizer  
+vcf-sort  
 
 # Other required files
-SNP coordinates / builds across platforms: Please contact hubbardl@cardiff.ac.uk initially - this will be made available in a repository. 
+SNP coordinates / builds across platforms: Please contact hubbardl@cardiff.ac.uk initially - this will be made available in a repository.  
 HRC v1.1 SNP information: ftp://ngs.sanger.ac.uk/production/hrc/HRC.r1-1/HRC.r1-1.GRCh37.wgs.mac5.sites.tab.gz
