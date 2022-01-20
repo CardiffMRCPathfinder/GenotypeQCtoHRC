@@ -1,11 +1,17 @@
 # GenotypeQCtoHRC
 
-Overview: This automated Rmd pipeline is designed to perform stringent quality control of genotype data in ped/map or bed/bim/fam format, align against the Haplotype Reference Consortium V1.1 reference panel and output in compressedd vcf.gz format ready for imputation. Each pipeline produces an Rmd QC report, which gives you information regarding number of individuals SNPs excluded based on user parameters, sex discrepencies, relatedness adjusted PCAs and ancestry information. 
+Overview: This automated Rmd pipeline is designed to perform stringent quality control of genotype data in ped/map or bed/bim/fam format, align against the Haplotype Reference Consortium V1.1 reference panel and output in compressed vcf.gz format ready for imputation using the Michigan Imputation Server. Each pipeline produces an Rmd QC report, which gives you information regarding number of individuals SNPs excluded based on user parameters, sex discrepencies, possible sex chromosome abnormalities, relatedness information, relatedness adjusted PCAs and ancestry probabilities.  
+  
+We demonstrate the utilty of the pipeline using publically available data: https://www.nature.com/articles/nature09103  
+Genotype data available for download here: https://evolbio.ut.ee/jew/  
+
+The automated report can be found here. 
 
 
+# Usage  
 
+To run the pipeline you will need to modify the accompanying .sh script for your own purposes. The following R packages are also required:
 
-# Required R Packages 
 library("tidyverse") # Package version: 1.2.1  
 library("ggthemes") # Package version: 4.0.1  
 library("scales") # Package version 1.0.0  
@@ -18,17 +24,15 @@ library("gridGraphics") # Package version: 0.3-3
 library("cowplot") # Package version 0.9.4   
 library("AssocTests") # Package version:0.0-4    
 library("caret") # Package version: 6.0-81   
-  
 library("BiocManager") # Use to install/update Bioconductor packages. Bioconductor version 3.8. Package version 1.30.4   
 library("GWASTools") # Bioconductor package : Package version: 1.28.0   
 library("SNPRelate") # Bioconductor package. Package version: 1.16.0   
 library("GENESIS") # Bioconductor package. Package version: 2.12.2   
 library("snpStats") # Bioconductor package. Package version: 1.32.0   
-
 library("knitr")  
 library("prettydoc")  
 
-# Other required software
+You will also need working versions of the following software:  
 plink1.9  
 plink2  
 DosageConvertor  
