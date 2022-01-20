@@ -30,14 +30,25 @@ ii) Writes these individuals to file, but does not exclude them.
 13) Global biogeographical ancestry inference - This analysis is based on the set of Ancestry Informative Markers (AIMs) contained in the EUROFORGEN (PMID: [24631693](https://www.sciencedirect.com/science/article/pii/S1872497314000404), [27208666](https://www.sciencedirect.com/science/article/pii/S1872497316300643)) and Kidd (PMID: [24508742](https://www.sciencedirect.com/science/article/pii/S1872497314000039)) panels. The original sets contain a grand total of 167 AIMs, but this will be lower depending on the number of SNPs in your dataset. As a reference panel, a combination of Human Genome Diversity Project (PMID: [18292342](http://science.sciencemag.org/content/319/5866/1100)) and South Asian Genome Project (PMID: [25115870](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0102645)) is used. Ancestry inference is based on Fisher's Linear Discriminant Analysis algorithm (PMID: [16193326](https://link.springer.com/article/10.1007%2Fs00439-005-0012-1)), which has been applied to the first `r paste0(pca.aim1.tw)` principal components of the HGDP+SAGP dataset. This optimal number of PCs has been determined using the Tracy-Widom test for eigenvalues (PMID: [17194218](https://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.0020190)).  
 14) The html report is generated and data is saved in appropriate sub-directories. 
 
-
-
-
-
-
 # Usage 
 
-To run the pipeline you will need to modify the accompanying .sh script for your own purposes. The following R packages are also required:
+To run the pipeline you will need to modify the accompanying Rmd and .sh script for your own purposes. 
+The following lines (87-98) can be easily modified for your own QC parameters:  
+qc0.max.femaleF <- 0.2 # Maximum female X-linked homozygosity  
+qc0.min.maleF <- 0.8 # Minimum male X-linked homozygosity  
+qc1.call.rate <- 0.95 # Minimum marker call rate  
+qc2.coverage <- 0.95 # Minimum individual genotyping coverage  
+qc3.hwepval <- 1e-6 # Maximum mid p-value for the HWE test  
+qc4.maf <- 0.01 # Minimum MAF for PCA  
+qc4.pcairs <- 5 # Number of PCs used to correct kinship matrix  
+qc4.kin <- 0.1 # Minimum kinship to include pairs of samples in report  
+max.aimpcs <- 32 #   
+min.prob.aim1 <- 0.8 # Minimal ancestry percentage to classify one person  
+min.prob.admx <- 0.4 # Minimal ancestry percentage to send a person  
+min.prob.aim2 <- 0.8 # Minimal ancestry percentage to classify one person  
+
+
+# R Packages
 
 library("tidyverse") # Package version: 1.2.1  
 library("ggthemes") # Package version: 4.0.1  
@@ -59,12 +70,12 @@ library("snpStats") # Bioconductor package. Package version: 1.32.0
 library("knitr")  
 library("prettydoc")  
 
-You will also need working versions of the following software:  
+# Other software 
 plink1.9  
 plink2  
-Genome Harmoniser  
-liftover  
+GenotypeHarmonizer
+vcf-sort
 
 # Other required files
-SNP coordinates / builds across platforms:  
+SNP coordinates / builds across platforms: Please contact hubbardl@cardiff.ac.uk initially - this will be made available in a repository. 
 HRC v1.1 SNP information: ftp://ngs.sanger.ac.uk/production/hrc/HRC.r1-1/HRC.r1-1.GRCh37.wgs.mac5.sites.tab.gz
