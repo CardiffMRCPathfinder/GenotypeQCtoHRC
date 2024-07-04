@@ -7,7 +7,7 @@ https://www.cog-genomics.org/plink/2.0/resources#phase3_1kg
 Then use PLINK2 to *--keep* the individuals in **kgp3.array_snps.id** and *--extract* the markers in **kgp3.array_snps.snplist**.
 Write the output with **--make-pgen** to a set of pgen/pvar/psam files with the stem **kgp3.array_snps**.
 
-Finally, download and decompress cross-population FST estimates from here: https://walters.psycm.cf.ac.uk/dragondata/ancestry_reference_1kgp.tar
+Finally, download and decompress cross-population F<sub>ST</sub> estimates from here: https://walters.psycm.cf.ac.uk/dragondata/ancestry_reference_1kgp.tar
 MD5 checksum: https://walters.psycm.cf.ac.uk/dragondata/ancestry_reference_1kgp.tar.md5
 
 ## Last update

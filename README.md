@@ -87,6 +87,6 @@ If it ends up being *very* helpful, please let us know so we can keep fighting i
 
 Please submit suggestions and bug-reports at <https://github.com/CardiffMRCPathfinder/GenotypeQCtoHRC/issues>.
 
-[^1]: Originally described in (Legge et al. 2019)[https://doi.org/10.1038/s41380-018-0335-7] and updated to use all available SNPs with high F<sub>ST</sub> values as AIMs.
+[^1]: Originally described in [Legge et al. 2019](https://doi.org/10.1038/s41380-018-0335-7) and updated to use all available SNPs with high F<sub>ST</sub> values as AIMs.
 [^2]: The RMarkdown [setup](https://bookdown.org/yihui/rmarkdown/installation.html) can be problematic in some HPC servers. Please ensure the linked [Pandoc](https://pandoc.org/) installation is v2.5+.
 [^3]: This includes PLINK (v1.9 and v2) and Genotype Harmonizer v1.4.20+, which requires Java. Please check that these files have the appropriate permissions to be executed once you copy them to your local or HPC system.
