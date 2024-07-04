@@ -8,14 +8,20 @@ All downloads in this folder were last updated on **2024-03-28**.
 
 ### Files
 Hg18ToHg19.chain
+
 Hg18ToHg38.chain
+
 Hg19ToHg18.chain
+
 Hg19ToHg38.chain
+
 Hg38ToHg19.chain
 
 ### Download Source
 http://hgdownload.soe.ucsc.edu/goldenPath/hg38/liftOver/
+
 http://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/
+
 http://hgdownload.soe.ucsc.edu/goldenPath/hg18/liftOver/
 
 ### Original README
@@ -44,9 +50,13 @@ the same archive or directory with the chain files.
 
 ### Files
 NCBI36ToGRCh37.chain
+
 NCBI36ToGRCh38.chain
+
 GRCh37ToNCBI36.chain
+
 GRCh37ToGRCh38.chain
+
 GRCh38ToGRCh37.chain
 
 ### Download Source 
@@ -57,6 +67,7 @@ http://ftp.ensembl.org/pub/assembly_mapping/homo_sapiens/
 
 ### Files
 Hg19.Ormond2021.CUPs.bed
+
 Hg38.Ormond2021.CUPs.bed
 
 ### Download Source 

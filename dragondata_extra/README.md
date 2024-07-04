@@ -3,8 +3,11 @@
 ## Required files
 Please download here the PLINK and PLINK2 binaries appropriate for your system. 
 You can find these at:
+
 https://www.cog-genomics.org/plink/1.9/
+
 https://www.cog-genomics.org/plink/2.0/
+
 Our scripts were tested with **PLINK1 beta 7.2** and **PLINK2 alpha 5.11**, but later versions might work.
 
 ## Note for MAC users
