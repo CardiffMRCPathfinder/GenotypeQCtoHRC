@@ -1,0 +1,860 @@
+---
+title: "Genotype QC to HRC ¦ `r params$dataset`"
+author: "DRAGON-Data Pipeline, Cardiff University"
+date: "`r format(Sys.Date(), '%d-%m-%Y')`"
+
+output: function(...){
+        tint::tintHtml(..., 
+                       includes=includes(in_header="report_head.html"))}
+
+params:
+  dataset: "My Dataset"
+  dataset.short: "MyDataset"
+  dataset.filename: "my_dataset"
+  dataset.outpath: "./my_dataset"
+  softfolder: "dragondata_extra"
+  scriptsfolder: "dragondata_scripts"
+  check: TRUE # Data integrity checks
+  chip: FALSE # Infer genotyping array (Chipendium procedure, time-consuming)
+  qc1: TRUE # Marker- and sample-level missingness checks
+  qc2: TRUE # Hardy-Weinberg equilibrium checks
+  qc3: TRUE # Sex chromosome checks
+  qc4: TRUE # Relatedness checks
+  qc5: TRUE # Ancestry inference
+  lo: TRUE # LiftOver
+  gh: TRUE # Harmonisation to imputation reference
+  gh.ref: "hrc" # Imputation reference
+  rename: TRUE # Rename markers with dbSNP RS IDs
+  qc1.call.rate: 0.95 # Minimum marker call rate
+  qc1.coverage: 0.95 # Minimum sample genotyping coverage
+  qc2.hwepval: 1e-6 # Maximum mid p-value for the HWE test
+  qc2.popmix: T # Do the HWE test results take account of the Wahlund effect?
+  qc3.max.femaleF: 0.2 # Maximum female X-linked homozygosity
+  qc3.min.maleF: 0.8 # Minimum male X-linked homozygosity
+  qc4.maf: 0.01 # Minimum MAF for PCA
+  qc4.pcairs: 10 # Number of PCs to calculate in PC-AiR
+  qc4.pcrelate: 5 # Number of PCs used to correct kinship matrix
+  qc4.kin: 0.09375 # Minimum kinship to include pairs of samples in report (default: geometric mean between 2nd and 3rd-degree relatives)
+  qc5.ref: "aadr" # Name of the ancestry reference panel
+  lo.in: 37 # GRC input assembly
+  lo.out: 38 # GRC output assembly
+  
+---
+
+<!-- 
+Copyright 2024 Cardiff University
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License. 
+-->
+
+<!--
+```{r packages, include=FALSE, eval=FALSE}
+library("here")
+library("tidyverse")
+library("slugify")
+library("ggthemes")
+library("scales")
+library("RColorBrewer") 
+library("evaluate")
+library("data.table")
+library("svglite")
+library("GWASTools")
+library("SNPRelate")
+library("GENESIS")
+library("snpStats")
+library("kableExtra")
+library("gridGraphics")
+library("cowplot")
+```
+-->
+
+```{r knit setup, include=F}
+library("tint",quietly=T)
+library("knitr",quietly=T)
+library("glue",quietly=T)
+knitr::opts_chunk$set(echo=F, tidy=T, cache=F, message=F, error=F, warning=F, comment=NA, 
+                      cache.extra = packageVersion('tint'))
+opts_knit$set(width = 75)
+opts_knit$set(eval.after = "fig.cap")
+options(formatR.arrow=T, max.print = "75")
+options(tidyverse.quiet = TRUE)
+options(htmltools.dir.version = FALSE)
+is_html_output = function() {knitr::opts_knit$get("rmarkdown.pandoc.to") =="html"}
+```
+
+<!--
+NOTE: With the current settings ("setup" chunk), no code or warnings will be shown in the output.
+When running an analysis for the first time, please inspect the console output as well as the plots.
+-->
+
+```{r globals, include=F}
+# Random seed
+set.seed(12062017)
+
+# Auxiliary functions
+dependencies <- c("here","tidyverse","colorspace","scales","scattermore","slugify","ggpubr","GWASTools","caret")
+sapply(dependencies, require, character.only = TRUE, quietly=T)
+theme_set(theme_light(base_family="sans"))
+#source(here(params$scriptsfolder,"qc_functions.R"))
+`%nin%` <- Negate(`%in%`)
+
+# Save paths
+name.slug = gsub("\\_+", "_", slugify(opt$name))
+infile = params$dataset.filename
+outpath = params$dataset.outpath
+
+# Software paths
+PLINK1 = here(params$softfolder, "plink") # PLINK v1.9
+PLINK2 = here(params$softfolder, "plink2") # PLINK v2
+CHIPENDIUM = here(params$softfolder, "chipendium2019") # Chipendium SNP coordinates
+GH = here(params$softfolder,"GH1.4.20/GenotypeHarmonizer.sh") # Genotype Harmonizer v1.4.20
+vcfsort = here(params$softfolder, "vcf-sort")
+liftover = here(params$softfolder, "liftOverPlink.py")
+```
+
+# Dataset pre-processing
+
+```{r backup, include=F}
+# Backup original datasets
+file.copy(paste0(infile, ".bed"), here(paste0(outpath, "/original")),copy.date = T)
+file.copy(paste0(infile, ".bim"), here(paste0(outpath, "/original")),copy.date = T)
+file.copy(paste0(infile, ".fam"), here(paste0(outpath, "/original")),copy.date = T)
+```
+
+```{r bim.load, include=F}
+tar_load(bfile)
+bim = bfile[["bim"]]
+fam = bfile[["fam"]]
+```
+
+The PLINK files provided contain **`r nrow(bim)`** genotyped markers on **`r nrow(fam)`** individuals.
+
+```{r backup.location, results='asis', echo = FALSE}
+file_path <- here(gsub("\\./","",paste0(params$dataset.outpath,"/original")))
+http_address <- glue("file://{file_path}")
+cat("[Original PLINK files are available here.](", http_address, ")")
+```
+
+`r if(!params$check) {"<!--"}`
+
+```{r bim.test}
+# Integrity tests requested
+if (params$check) {
+  # Not enough chromosomes
+  bim.problem.fewCHR <- length(unique(bim$CHR))<22
+  # Too many chromosomes
+  bim.problem.manyCHR <- length(unique(bim$CHR))>27
+  # Unknown chromosomes
+  if(nrow(bfile.nonauto$nonchr)>0){
+  	write.table(bfile.nonauto$nonchr,file=paste0(outpath,"/",infile,".non_standard_chr.txt"),
+  	            col.names=F,quote=F,row.names=F)}
+  # B-allele counts
+  bim.problem.Balleles <- subset(bim, A1 == "B" | A2 == "B")
+  if(nrow(bim.problem.Balleles)>0){
+  	write.table(bim.problem.Balleles,file=paste0(outpath,"/",infile,".B_allele.txt"),
+  	            col.names=F,quote=F,row.names=F)}
+} else {
+  bim.problem.fewCHR <- F
+  bim.problem.manyCHR <- F
+  bfile.nonauto$nonchr <- data.frame(character(0))
+  bim.problem.Balleles <- data.frame(character(0))
+}
+```
+
+`r if(params$check & !isTRUE(bim.problem.manyCHR)) {"<!--"}`
+
+## Too many chromosomes
+
+Warning! **`r length(unique(bim$CHR))`** chromosomes were detected in the dataset. Please check for chromosome coding issues. This might have caused problems in downstream operations. It is recommended to run the pipeline again after checking/fixing this issue.
+
+`r if(params$check & !isTRUE(bim.problem.manyCHR)) {"-->"}`
+
+`r if(params$check & !isTRUE(bim.problem.manyCHR)) {"<!--"}`
+
+## Too few chromosomes
+
+Warning! Only **`r length(unique(bim$CHR))`** chromosomes were detected in the dataset. This might have caused problems in downstream QC steps. Please check for chromosome coding issues. This might have caused problems in downstream operations. It is recommended to run the pipeline again after checking/fixing this issue.
+
+`r if(params$check & !isTRUE(bim.problem.manyCHR)) {"-->"}`
+
+`r if(params$check & nrow(bfile.nonauto$nonchr)==0) {"<!--"}`
+
+## Non-standard chromosomes
+
+Warning! **`r nrow(bfile.nonauto$nonchr)`** markers outside of standard (autosomal, X, Y, PAR, MTDNA) chromosomes were detected in the dataset. These have been excluded prior to any quality control steps.
+
+```{r problem.extraCHR, results='asis', echo = FALSE}
+file_path <- here(gsub("\\./","",paste0(outpath,"/",infile,".non_standard_chr.txt")))
+http_address <- glue("file://{file_path}")
+cat("[Markers with non-standard chromosomes.](", http_address, ")")
+```
+
+`r if(params$check & nrow(bfile.nonauto$nonchr)==0) {"-->"}`
+
+`r if(params$check & nrow(bim.problem.Balleles)==0) {"<!--"}`
+
+Warning! **`r nrow(bim.problem.Balleles)`** markers with improperly coded alleles (A/B) have been detected in the dataset. Downstream operations requiring proper nucleotide codes (e.g. marker renaming, ancestry inference) might not have worked.
+
+```{r problem.Balleles, results='asis', echo = FALSE}
+file_path <- here(gsub("\\./","",paste0(outpath,"/",infile,".B_allele.txt")))
+http_address <- glue("file://{file_path}")
+cat("[Markers with A/B allele codes.](", http_address, ")")
+```
+
+`r if(params$check & nrow(bim.problem.Balleles)==0) {"-->"}`
+
+`r if(!params$check) {"-->"}`
+
+```{r bim.show}
+bim.summary <- summarise(group_by(bim,CHR),SNPs=n(),BP.from=min(BP),BP.to=max(BP))
+bim.summary <- arrange(bim.summary,nchar(CHR),CHR)
+bim.summary <- mutate(bim.summary, 
+                      CHR=case_match(CHR, .default=CHR,
+                                     "23" ~ "X", 
+                                     "24" ~ "Y", 
+                                     c("25","XY","PAR1","PAR2") ~ "XYPAR", 
+                                     c("26","M","MT") ~ "MTDNA"))
+kable(bim.summary,
+      col.names=c("Chromosome","Number of SNPs","Start basepair","End basepair"),
+      caption="Genotyped SNP content across chromosomes.")
+```
+
+```{r bim.nonauto}
+tar_load(bfile.nonauto)
+```
+
+`r if(nrow(bfile.nonauto$mito)==0) {"<!--"}`
+
+## Mitochondrial DNA
+
+**`r nrow(bfile.nonauto$mito)`** SNPs were detected in the mitochondrial DNA. These have been separated into their own PLINK files and are available in the curated data folder.
+
+`r if(nrow(bfile.nonauto$mito)==0) {"-->"}`
+
+`r if(!params$rename) {"<!--"}`
+
+## Assignment of dbSNP RSIDs
+
+```{r pvar.rename, include=F}
+tar_load(pvar.qc0)
+rename.snp.lost <- nrow(bim)-nrow(pvar.qc0)
+```
+
+`r if(params$rename & !params$lo.in=="38") {"<!--"}`
+
+Whenever possible, markers were renamed to match dbSNP release 156 using the 1000 Genomes Phase 3 (2022) files from the PLINK2 <span style="color: dodgerblue;">[website](https://www.cog-genomics.org/plink/2.0/resources)</span> as reference. **`r length(pvar.qc0$SNP[grep("rs",pvar.qc0$SNP)])`** markers were assigned dbSNP IDs. The IDs of other markers were set to *CHR:BP:REF:ALT*. **`r rename.snp.lost`** markers were removed in this process due to irresolvable mismatches with the reference. Please see the [Genotype Harmonizer](https://github.com/molgenis/systemsgenetics/wiki/Genotype-Harmonizer) logs for additional information.
+
+`r if(params$rename & !params$lo.in=="38") {"-->"}`
+
+`r if(params$rename & !params$lo.in=="37") {"<!--"}`
+
+Whenever possible, markers were renamed to match dbSNP release 142 using the 1000 Genomes Phase 3 (2016) files from the PLINK2 <span style="color: dodgerblue;">[website](https://www.cog-genomics.org/plink/2.0/resources)</span> as reference. **`r length(pvar.qc0$SNP[grep("rs",pvar.qc0$SNP)])`** markers were assigned dbSNP IDs. The IDs of other markers were set to *CHR:BP:REF:ALT*. **`r rename.snp.lost`** markers were removed in this process due to irresolvable mismatches with the reference. Please see the [Genotype Harmonizer](https://github.com/molgenis/systemsgenetics/wiki/Genotype-Harmonizer) logs for additional information.
+
+`r if(params$rename & !params$lo.in=="37") {"-->"}`
+
+`r if(params$rename & !params$lo.in=="36") {"<!--"}`
+
+Whenever possible, markers passing quality control were renamed to match dbSNP release 137 using the HapMap2 Release 23 (2008) files from the PLINK <span style="color: dodgerblue;">[website](https://zzz.bwh.harvard.edu/plink/res.shtml)</span>as reference. **`r length(pvar.qc0$SNP[grep("rs",pvar.qc0$SNP)])`** markers were assigned dbSNP IDs. The IDs of other markers were set to *CHR:BP:REF:ALT*. **`r rename.snp.lost`** markers were removed in this process due to irresolvable mismatches with the reference. Please see the [Genotype Harmonizer](https://github.com/molgenis/systemsgenetics/wiki/Genotype-Harmonizer) logs for additional information.
+
+`r if(params$rename & !params$lo.in=="36") {"-->"}`
+
+`r if(!params$rename) {"-->"}`
+
+```{r chip.identify}
+# Chipendium requested
+if (params$chip) {tar_load(chip.overlap)}
+```
+
+`r if(!params$chip) {"<!--"}`
+
+## Chipendium
+
+The most likely genotyping chip(s) was identified as **`r if(params$chip){paste(chip.overlap$chip,collapse=" | ")}`** through a closest-match algorithm that found **`r if(params$chip){paste(chip.overlap$snps)}`** overlapping SNPs. Please see the legacy Chipendium <span style="color: dodgerblue;">[website](https://www.well.ox.ac.uk/~wrayner/strand/)</span> for more information about this procedure. Details on updated versions of Chipendium (not implemented here) can be found at the Strand <span style="color: dodgerblue;">[website](https://www.strand.org.uk/)</span>.
+
+`r if(!params$chip) {"-->"}`
+
+# QC Step 1: Missingness Rates
+
+```{r qc1.read}
+tar_load(qc1)
+qc1.snp.dataset <- qc1[["snp"]]
+qc1.ind.dataset <- qc1[["ind"]]
+tar_load(qc1.problem)
+qc1.snp.problem <- qc1.problem[["snp"]]
+qc1.ind.problem <- qc1.problem[["ind"]]
+```
+
+## Samples
+
+A large proportion of SNP assays failing on any single individual may be indicative of a poor quality DNA sample, which leads to aberrant genotype calling (Turner et al. 2011, PMID: <span style="color: dodgerblue;">[21234875](https://doi.org/10.1002%2F0471142905.hg0119s68)</span>). These samples should be removed from the dataset.
+
+```{r qc1.ind.plot, fig.cap=paste0("Optimal genotyping coverage was set at ",percent(params$qc1.coverage)," (red line). ",nrow(qc1.ind.problem)," individuals were removed due to low coverage.")}
+# Calculate genotyping call rate
+qc1.ind.dataset$F_GENO = 1 - qc1.ind.dataset$F_MISS
+qc1.ind.dataset = qc1.ind.dataset[order(qc1.ind.dataset$F_GENO),]
+# Calculate individual quantile
+qc1.ind.dataset$Q <- (1:dim(qc1.ind.dataset)[1])/(dim(qc1.ind.dataset)[1]-1)
+# Plot!
+qc1.ind.dataset.p1 <- ggplot(qc1.ind.dataset, aes(x = Q, y= F_GENO)) +
+  geom_scattermore(alpha = 0.75,pointsize = 5.4, colour="#92c5de") +
+  geom_hline(yintercept=params$qc1.coverage, linetype="dotted", colour="#d7191c", linewidth=1) +
+  scale_y_continuous(limits = c(min(0.9,floor(min(qc1.ind.dataset$F_GENO)*10)/10),1),labels = scales::percent) +
+  labs(title="Individual missingness",y="Coverage",x="Quantile",color="") +
+  theme(axis.title=element_text())
+qc1.ind.dataset.p1
+```
+
+```{r qc1.ind.report}
+# Create list of problematic individuals
+write.table(subset(qc1.ind.problem,select=c("#FID","IID")), paste0(outpath,"/",infile,".qc1.remove"), quote=F,col.names = F,row.names=F)
+```
+
+## SNPs
+
+Markers in which the genotyping has performed poorly can be identified by assessing their call rates over the whole dataset after discarding problematic samples (Turner et al. 2011, PMID: <span style="color: dodgerblue;">[21234875](https://doi.org/10.1002%2F0471142905.hg0119s68)</span>). SNPs with a low call rate are more likely to be affected by genotyping errors and should be excluded from further analyses.
+
+```{r qc1.snp.plot, fig.cap=paste0("Optimal per-marker call rate was set at ",percent(params$qc1.call.rate)," (red line). ",nrow(qc1.snp.problem)," SNPs were removed due to low call rate.")}
+# Calculate genotyping call rate
+qc1.snp.dataset$F_GENO = 1 - qc1.snp.dataset$F_MISS
+qc1.snp.dataset = qc1.snp.dataset[order(qc1.snp.dataset$F_GENO),]
+# Calculate SNP quantile
+qc1.snp.dataset$Q <- (1:dim(qc1.snp.dataset)[1])/(dim(qc1.snp.dataset)[1]-1)
+# Plot!
+qc1.snp.dataset.p1 <- ggplot(qc1.snp.dataset, aes(x = Q, y= F_GENO)) +
+  geom_scattermore(alpha = 0.75,pointsize = 4.3, colour="#92c5de") +
+  geom_hline(yintercept=params$qc1.call.rate, linetype="dotted", colour="#d7191c", linewidth=1) +
+  scale_y_continuous(limits = c(min(0.9,floor(min(qc1.snp.dataset$F_GENO)*10)/10),1),labels = scales::percent) +
+  labs(title="Marker missingness",y="Call Rate",x="Quantile",color="") +
+  theme(axis.title=element_text())
+qc1.snp.dataset.p1
+```
+
+```{r qc1.snp.report}
+# Create list of problematic SNPs
+write.table(subset(qc1.snp.problem,select=c("ID")), paste0(outpath,"/",infile,".qc1.exclude"), quote=F,col.names = F,row.names=F)
+```
+
+# QC Step 2: Hardy-Weinberg Equilibrium (HWE)
+
+```{r qc2.read}
+tar_load(qc2)
+tar_load(qc2.problem)
+```
+
+Allele frequencies in random-mating populations usually follow the Hardy-Weinberg proportions, unless they are under strong selective pressures. In the quality control of array datasets for GWAS, errors in genotyping tend to create deviations from HWE, as they result in a greater number of heterozygote calls (Graffelman 2017, PMID: <span style="color: dodgerblue;">[28374190](https://doi.org/10.1007/s00439-017-1786-7)</span>). 
+
+```{r qc2.snp.plot, fig.cap=paste0("The genome-wide significant p-value threshold for the Hardy-Weinberg Equilibrium exact test was set at ",formatC(params$qc2.hwepval, format = "e", digits = 2),". ",length(qc2.problem)," SNPs were removed due to deviations from HWE (red diamonds). The solid blue line indicates the expectation for the relationship between pairs of genotype frequencies according to the Hardy-Weinberg principles.")}
+# Generate allele and genotype frequencies
+qc2.snp.dataset <- qc2[["res"]] %>%
+  add_column(isMINOR=rbinom(n=nrow(.),size=1,prob=0.5)) %>%
+  mutate(CNT=rowSums(.[,c("A1A1","A1A2","A2A2")]),
+         A1A1.FRQ = if_else(isMINOR==0, 
+                           A1A1/CNT,
+                           A2A2/CNT),
+         A1A2.FRQ = A1A2/CNT,
+         A2A2.FRQ = if_else(isMINOR==0, 
+                           A2A2/CNT,
+                           A1A1/CNT),
+         A1A2.FRQhalf = 0.5*A1A2.FRQ) %>%
+  mutate(FRQ = rowSums(.[,c("A1A1.FRQ","A1A2.FRQhalf")]))
+# Extract SNPs flagged as problems
+qc2.snp.dataset.problem <- subset(qc2.snp.dataset, SNP %in% qc2.problem)
+# # Plot!
+# Graham Coop' scatterplot (https://gcbias.org/2011/10/13/population-genetics-course-resources-hardy-weinberg-eq/)
+# qc2.snp.dataset.p1 <- ggplot(qc2.snp.dataset, aes(x = FRQ, y= A1A1.FRQ)) +
+#                       geom_scattermore(alpha = 0.2,pointsize = 3.2, colour="#fdae61") +
+#                       geom_scattermore(aes(y=A2A2.FRQ),alpha = 0.2,pointsize = 3.2, colour="#2b83ba") +
+#                       geom_scattermore(aes(y=A1A2.FRQ),alpha = 0.2,pointsize = 3.2, colour="#abdda4") +
+#                       geom_point(data=qc2.snp.dataset.problem, aes(x=FRQ, y=A1A1.FRQ),
+#                                  shape=18, alpha = 0.5,pointsize = 4, colour="#d7191c") +
+#                       geom_point(data=qc2.snp.dataset.problem, aes(x=FRQ, y=A1A2.FRQ),
+#                                  shape=18, alpha = 0.5,pointsize = 4, colour="#d7191c") +
+#                       geom_point(data=qc2.snp.dataset.problem, aes(x=FRQ, y=A2A2.FRQ),
+#                                  shape=18, alpha = 0.5,pointsize = 4, colour="#d7191c") +
+#                       labs(title="Hardy-Weinberg Equilibrium",y="Genotype Frequency",x="Allele Frequency",color="") +
+#                       theme(axis.title=element_text())
+# Jan Graffelman' scatterplot (http://cran.r-project.org/package=HardyWeinberg)
+qc2.snp.dataset.p1 <- ggplot(qc2.snp.dataset, aes(x = A1A1.FRQ, y= A1A2.FRQ))  +
+                             geom_scattermore(alpha = 0.2, pointsize = 3.2, colour="#abd9e9") +
+                             geom_point(data=qc2.snp.dataset.problem, aes(x=A1A1.FRQ, y=A1A2.FRQ),
+                                        shape=18, alpha = 0.75, colour="#d7191c") +
+                             geom_function(fun=function(x) 2*(sqrt(x)-x),colour="#2c7bb6", linewidth=1) +
+                             scale_y_continuous(limits = c(0,1)) + scale_x_continuous(limits = c(0,1)) +
+                             labs(title="Hardy-Weinberg Equilibrium", y=expression("f"["A1A2"]),x=expression("f"["A1A1"]),color="") +
+                            theme(axis.title=element_text())
+qc2.snp.dataset.p2 <- ggplot(qc2.snp.dataset, aes(x = A1A1.FRQ, y= A2A2.FRQ))  +
+                             geom_scattermore(alpha = 0.2, pointsize = 3.2, colour="#abd9e9") +
+                             geom_point(data=qc2.snp.dataset.problem, aes(x=A1A1.FRQ, y=A2A2.FRQ),
+                                        shape=18, alpha = 0.75, colour="#d7191c") +
+                             geom_function(fun=function(x) (1-sqrt(x))^2,colour="#2c7bb6", linewidth=1) +
+                             scale_y_continuous(limits = c(0,1)) + scale_x_continuous(limits = c(0,1)) +
+                             labs(title=" ", y=expression("f"["A2A2"]),x=expression("f"["A1A1"]),color="") +
+                             theme(axis.title=element_text())
+ggarrange(qc2.snp.dataset.p1, qc2.snp.dataset.p2,ncol=2,nrow=1) 
+#annotate_figure(qc2.snp.dataset.p1p2, fig.lab = "       Hardy-Weinberg Equilibrium", fig.lab.size=13, top=text_grob(" "))
+```
+
+```{r qc2.snp.report}
+# Create list of problematic SNPs
+write.table(qc2.problem, paste0(outpath,"/",infile,".qc2.exclude"), quote=F,col.names = F,row.names=F)
+```
+
+`r if(isTRUE(params$qc2.popmix)) {"<!--"}`
+
+HWE testing was performed by calculating a "mid" p-value instead of an exact p-value (Graffelman & Moreno 2013, PMID: <span style="color: dodgerblue;">[23934608](https://doi.org/10.1515/sagmb-2012-0039)</span>).
+
+`r if(isTRUE(params$qc2.popmix)) {"-->"}`
+
+`r if(!isTRUE(params$qc2.popmix)) {"<!--"}`
+
+HWE testing was performed with two modifications implemented in the PLINK2 software <span style="color: dodgerblue;">[website](https://www.cog-genomics.org/plink/2.0/filter#hwe)</span>: Calculating a "mid" p-value instead of an exact p-value (Graffelman & Moreno 2013, PMID: <span style="color: dodgerblue;">[23934608](https://doi.org/10.1515/sagmb-2012-0039)</span>), and performing a one-sided test for markers with few heterozygote calls to account for the <span style="color: dodgerblue;">[Wahlund effect](https://doi.org/10.1002/9780470015902.a0005446.pub3)</span> caused by population stratification (Lee 2003, PMID: <span style="color: dodgerblue;">[21184275](https://doi.org/10.1093/aje/kwg150)</span>).
+
+`r if(!isTRUE(params$qc2.popmix)) {"-->"}`
+
+# QC Step 3: Sex chromosome checks
+
+`r if(nrow(bfile.nonauto$x)>0) {"<!--"}`
+
+This step was skipped as no markers were found in the X chromosome.
+
+`r if(nrow(bfile.nonauto$x)>0) {"-->"}`
+
+```{r qc3.read}
+if (nrow(bfile.nonauto$x)>0) {
+tar_load(qc3)
+qc3.ind.dataset <- qc3[["ind"]]
+tar_load(qc3.problem)
+tar_load(bfile.qc3)} else {
+qc3 <- data.frame(character(0))
+qc3.ind.dataset <- data.frame(YRATE=character(0),YCOUNT=character(0),potential.aneuploidy=character(0))
+qc3.problem <- data.frame(character(0))
+bfile.qc3 <- data.frame(character(0))
+}
+```
+
+`r if(nrow(bfile.nonauto$x)==0 | nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)>0) {"<!--"}`
+
+This test assesses homozygosity estimates from the X chromosome using the inbreeding coefficient F (Wright 1921, PMID: <span style="color: dodgerblue;">[17245962](https://doi.org/10.1093/genetics/143.4.1499)</span>) calculated for each sample over LD-independent X-linked markers ($r^{2} \le 0.2$). Samples at the extremes of the distribution of the F statistic are likely genetic females (low F) or genetic males (high F).
+
+```{r qc3.ind.x.plot, fig.cap=paste0("Homozygosity thresholds (red lines) set at ",params$qc3.max.femaleF," for genetic females and ",params$qc3.min.maleF," for genetic males. ",nrow(qc3.problem)," individuals are between both values.")}
+# Plot!
+if (nrow(bfile.nonauto$x)>0) {
+qc3.ind.dataset.p1 <- ggplot(qc3.ind.dataset, aes(x = F)) +
+  geom_histogram(aes(y=..count..),binwidth=0.025, colour="#2c7bb6", fill="#92c5de") +
+  geom_vline(xintercept=params$qc3.max.femaleF, linetype="dotted", colour="#d7191c", linewidth=1) +
+  geom_vline(xintercept=params$qc3.min.maleF, linetype="dotted", colour="#d7191c", linewidth=1) +
+  labs(title="X-linked markers",y="Number of samples",x="X chromosome homozygosity (F)") +
+  theme(axis.title=element_text())
+qc3.ind.dataset.p1 
+}
+```
+
+`r if(nrow(bfile.nonauto$x)==0 | nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)>0) {"-->"}`
+
+`r if(nrow(bfile.nonauto$x)==0 | nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)==0) {"<!--"}`
+
+This test assesses homozygosity estimates from the X chromosome using the inbreeding coefficient F (Wright 1921, PMID: <span style="color: dodgerblue;">[17245962](https://doi.org/10.1093/genetics/143.4.1499)</span>) calculated for each sample using LD-independent X-linked markers ($r^{2} \le 0.2$). Samples at the extremes of the distribution of the F statistic are likely genetic females (low F) or genetic males (high F). Coverage for Y-linked markers can also be inspected to more accurately infer the sex of ambiguous samples. Furthermore, the combination of both metrics can pinpoint individuals as potential carriers of sex chromosome aneuploidies such as the Turner (X0; high F and low Y coverage) or Klinefelter (XXY; low F and high Y coverage) syndromes (Igo et al. 2016, PMID: <span style="color: dodgerblue;">[27367164](https://doi.org/10.1002%2Fcphg.15)</span>). 
+
+```{r qc3.ind.xy.plot, fig.cap=paste0("Homozygosity thresholds (red lines) set at ",params$qc3.max.femaleF," for genetic females and ",params$qc3.min.maleF," for genetic males. ",nrow(qc3.problem)," individuals were seen between both values. ",nrow(subset(qc3.ind.dataset,!is.na(potential.aneuploidy)))," individuals were identified as potentially having an abnormal sex chromosome karyotype (orange diamonds), and could benefit from addional quality control if raw genotype intensity data is available.")}
+# Calculate coverage at the Y chromosome and identify potential aneuploidy carriers
+if (nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)>0) {
+bfile.y.markers <- nrow(bfile.qc3$bim.y)
+qc3.ind.dataset <- mutate(qc3.ind.dataset,
+                          YRATE=YCOUNT/bfile.y.markers,
+                          potential.aneuploidy=ifelse(F>=params$qc3.min.maleF & YRATE<=0.2,"X0",
+                                                      ifelse(F<params$qc3.min.maleF & YRATE>=0.8,"XXY",NA)))
+# Plot!
+qc3.ind.dataset.p2 <- ggplot(subset(qc3.ind.dataset,is.na(potential.aneuploidy)), aes(x = F, y = YRATE)) +
+  geom_scattermore(alpha = 0.75,pointsize = 5.4, colour="#92c5de") +
+  geom_point(data=subset(qc3.ind.dataset,!is.na(potential.aneuploidy)), aes(x = F, y = YRATE),
+  shape=23, alpha = 1,size = 3, colour="#d7191c", fill="#fdae61") +
+  geom_vline(xintercept=params$qc3.max.femaleF, linetype="dotted", colour="#d7191c", linewidth=1) +
+  geom_vline(xintercept=params$qc3.min.maleF, linetype="dotted", colour="#d7191c", linewidth=1) +
+  scale_y_continuous(limits = c(0,1), labels = scales::percent) +
+  labs(title="Sex chromosome content",y="Y chromosome coverage",x="X chromosome homozygosity (F)") +
+  theme(axis.title=element_text())
+qc3.ind.dataset.p2 
+}
+```
+
+In some cases, Y chromosome coverage rates of female samples can be >10%, though there should still be a clear difference between female and male samples in this metric. This is an issue <span style="color: dodgerblue;">[reported](https://groups.google.com/g/plink2-users/c/wzTNgigro-Q/m/wUq3xIz6whkJ)</span> for some legacy genotyping arrays where autosomal or X-linked probes were erroneously coded as Y-linked.
+
+`r if(nrow(bfile.nonauto$x)==0 | nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)==0) {"-->"}`
+
+```{r qc3.ind.report}
+# Create list of problematic individuals
+if (nrow(bfile.nonauto$x)>0 &nrow(bfile.nonauto$y)>0) {
+  write.table(subset(qc3.ind.dataset,STATUS=="PROBLEM"|!is.na(potential.aneuploidy)), paste0(outpath,"/",infile,".qc3.sexcheck.report"), quote=F,col.names = T,row.names=F)
+}
+if (nrow(bfile.nonauto$x)>0 &nrow(bfile.nonauto$y)==0) {
+write.table(subset(qc3.ind.dataset,STATUS=="PROBLEM"), paste0(outpath,"/",infile,".qc3.sexcheck.report"), quote=F,col.names = F,row.names=F)
+}
+```
+
+# QC Step 4: Population structure and in-sample relatedness
+
+PC-AiR (Conomos et al. 2015, PMID: <span style="color: dodgerblue;">[25810074](https://doi.org/10.1002/gepi.21896)</span>) was performed using the implementation in the <span style="color: dodgerblue;">[GENESIS](https://bioconductor.org/packages/release/bioc/html/GENESIS.html)</span> software suite. This is a modified version of the Principal Components Analysis (PCA) approach for the detection of population structure in genome-wide data. Unlike the standard method, PC-AiR may be used if some individuals in the sample are closely related, as it generates principal components that are robust to family structure.
+
+```{r qc4.read}
+tar_load(qc4.pcair)
+```
+
+```{r qc4.pca.report, fig.cap=paste0("Results from a PC-AiR analysis on ",qc4.pcair$nsnps," LD-independent markers outside of genomic regions with long-range LD. Red lines indicate the area delimited by the mean +/- 1.96 standard deviations of the first two principal components.")}
+# Create PC dataframe and add IDs
+qc4.pca <- as.data.frame(qc4.pcair$vectors)
+colnames(qc4.pca) <- paste0("PC",1:params$qc4.pcairs)
+qc4.pca$IID <- row.names(qc4.pca)
+write.table(select(qc4.pca,c("IID",paste0("PC",1:params$qc4.pcairs))),
+            file=paste0(outpath,"/",infile,".qc4.pcair.eigenvec"),
+            col.names=T,row.names=F,quote=F,sep="\t")
+# Derive some variables for further reporting
+qc4.id_have_underscores <- any(grepl("_",qc4.pca$IID))
+qc4.pc1_mean <- mean(qc4.pca$PC1)
+qc4.pc1_sd <- sd(qc4.pca$PC1)
+qc4.pc2_mean <- mean(qc4.pca$PC2)
+qc4.pc2_sd <- sd(qc4.pca$PC2)
+rpcdata.p1 <- ggplot(qc4.pca, aes(x = PC1, y= PC2)) +
+              geom_scattermore(alpha = 0.75,pointsize = 5.4, colour="#92c5de") +
+              geom_vline(xintercept=qc4.pc1_mean+1.96*qc4.pc1_sd, linetype="dotted", colour="#d7191c", linewidth=1) +
+              geom_vline(xintercept=qc4.pc1_mean-1.96*qc4.pc1_sd, linetype="dotted", colour="#d7191c", linewidth=1) +
+              geom_hline(yintercept=qc4.pc2_mean+1.96*qc4.pc2_sd, linetype="dotted", colour="#d7191c", linewidth=1) +
+              geom_hline(yintercept=qc4.pc2_mean-1.96*qc4.pc2_sd, linetype="dotted", colour="#d7191c", linewidth=1) +
+              labs(title="PC-AiR",y="PC2",x="PC1",color="") +
+              theme(axis.title=element_text())
+rpcdata.p1
+```
+
+The output of PC-AiR can be used by PC-Relate (Conomos et al. 2016, PMID: <span style="color: dodgerblue;">[26748516](https://doi.org/10.1016/j.ajhg.2015.11.022)</span>), an approach to de-confound estimates of genetic kinship from population structure. The PC-Relate coefficient $\Phi$ can be interpreted in the same way as the PLINK metric $\hat\pi{}$ to identify groups of related individuals (Manichaikul et al. 2010, PMID: <span style="color: dodgerblue;">[20926424](https://doi.org/10.1093%2Fbioinformatics%2Fbtq559)</span>).
+
+```{r qc4.read2}
+tar_load(qc4.pcrelate)
+```
+
+```{r qc4.kin.report, fig.cap=paste0("For each pair of samples in the dataset, the plot shows proportions of markers with no identical-by-descent (IBD) alleles and estimated kinship values. These have been corrected using ",params$qc4.pcrelate," principal components and rescaled to the equivalent PLINK metric. ",nrow(qc4.related)," pairs of individuals have a relatedness coefficient greater than ",params$qc4.kin," (red line). Among those, ",nrow(qc4.duplicated)," pairs have been identified as potentially duplicated samples or monozygotic twins.")}
+### Generate robust kinship estimates
+phiframe <- qc4.pcrelate$kinBtwn
+# Assign relatedness based on kinship/IBD0
+phiframe$relatedness <- ibdAssignRelatednessKing(kc=phiframe$kin, ibs0=phiframe$k0)
+phiframe$relatedness <- factor(phiframe$relatedness,levels=c("Dup","PO","FS","Deg2","Deg3","U","Q"),labels=c("Duplicates/Twins","Parent-Offspring","Full Siblings","2nd Degree","3rd Degree","Unrelated","Unknown"))
+### Correct kinship estimates to make it equivalent to PLINK IBD
+phiframe$kin <- phiframe$kin * 2 
+phiframe$kin[phiframe$kin < 0] <- 0 
+phiframe$kin[phiframe$kin > 1] <- 1
+### Output related individuals
+write.table(subset(phiframe, relatedness != "Unrelated"), file=paste0(outpath,"/",infile,".qc4.pcrelate.kin"),col.names=T,row.names=F,quote=F,sep="\t")
+qc4.related <- subset(phiframe,kin>=params$qc4.kin)
+qc4.duplicated <- subset(phiframe,relatedness=="Duplicates/Twins")
+# Plot!
+range01 <- function(x){(x-min(x))/(max(x)-min(x))} # Custom function to do 0-1 standardisation
+phiframe$p0 <- range01(phiframe$k0)
+phiframe.p1 <- ggplot(subset(phiframe,relatedness != "Unrelated"), aes(x = p0, y= kin,fill=relatedness,colour=relatedness)) +
+  geom_scattermore(data=phiframe, aes(x = p0, y = kin),
+                   alpha = 0.5, pointsize = 6.5) +
+  geom_point(shape=21, alpha = 0.5,size = 5, colour="black", show.legend = FALSE) +
+  scale_colour_discrete_sequential(palette="Batlow", rev=F, drop=T,aesthetics=c("colour","fill")) +
+  labs(title="PC-Relate pairwise allele-sharing estimates",y="Kinship coefficient",x="Proportion of markers with 0 IBD alleles",color="",fill="") +
+  geom_hline(yintercept=params$qc4.kin, linetype="dotted", colour="#d7191c", linewidth=1) +
+  scale_x_continuous(limits = c(0,1)) +
+  scale_y_continuous(limits = c(0,1)) +
+  guides(colour = guide_legend(override.aes = list(alpha=1, size=5))) +
+  theme(axis.title=element_text(),
+        legend.position="right",
+        legend.direction = "vertical")
+phiframe.p1
+```
+
+# QC Step 5: Biogeographic ancestry inference
+
+```{r qc5.read}
+tar_load(qc5.ref.bfile)
+tar_load(qc5.pcair)
+tar_load(qc5.tw)
+```
+
+These analyses are based on the procedure described in Legge et al. 2019 (PMID: <span style="color: dodgerblue;">[30647433](https://doi.org/10.1038/s41380-018-0335-7)</span>) and updated in Smart et al. 2024 (in prep). The biogeographic ancestries inferred are based on the standardised system by Huddart et al. 2019 (PMID: <span style="color: dodgerblue;">[30506572](https://doi.org/10.1002/cpt.1322)</span>).
+
+`r if(params$qc5.ref=="1kgp") {"<!--"}`
+
+**`r length(qc5.ref.bfile[["pheno"]]$IID)`** unrelated contemporaneous individuals from the Allen Ancient DNA Resource v50 (Mallick et al. 2024; PMID: <span style="color: dodgerblue;">[38341426](https://doi.org/10.1038/s41597-024-03031-7)</span>) were used to infer Ancestry Informative Markers (AIMs). These were defined as LD-independent variants overlapping the input dataset, outside of genomic regions with long-range LD (Price et al. 2008; PMID: <span style="color: dodgerblue;">[18606306](https://doi.org/10.1016/j.ajhg.2008.06.005)</span>), and with a Wright's F~ST~ value above the 97.5th percentile in at least one pairwise population comparison. The input and reference datasets were then trimmed to contain only AIMs and merged for all analyses.
+
+`r if(params$qc5.ref=="1kgp") {"-->"}`
+
+`r if(params$qc5.ref=="aadr") {"<!--"}`
+
+**`r length(qc5.ref.bfile[["pheno"]]$IID)`** unrelated individuals from the 1000 Genomes Phase 3 (Auton et al. 2015; PMID: <span style="color: dodgerblue;">[26432245](https://doi.org/10.1038/nature15393)</span>) were used to infer Ancestry Informative Markers (AIMs). These were defined as LD-independent variants overlapping the input dataset, outside of genomic regions with long-range LD (Price et al. 2008; PMID: <span style="color: dodgerblue;">[18606306](https://doi.org/10.1016/j.ajhg.2008.06.005)</span>), and with a Wright's F~ST~ value above the 97.5th percentile in at least one pairwise population comparison. The input and reference datasets were then trimmed to contain only AIMs and merged. Only 6 (out of 9) ancestries are available in this reference dataset.
+
+`r if(params$qc5.ref=="aadr") {"-->"}`
+
+```{r qc5.pca.report, fig.cap=paste0("Results from a PC-AiR analysis on ",qc5.pcair$nsnps," AIMs. 100 principal components were computed in the reference samples. Using the \"prediction\" algorithm implemented in PC-AiR, the input dataset samples (grey squares) were projected into the reference PC-coordinates.")}
+# Create PC dataframe and add IDs
+qc5.pca <- as.data.frame(qc5.pcair$vectors)
+colnames(qc5.pca) <- paste0("PC",1:100)
+qc5.pca$IID <- row.names(qc5.pca)
+qc5.pca <- subset(qc5.pca,select=c("IID",paste0("PC",1:qc5.tw))) %>%
+           arrange(IID) %>%
+           mutate(ref=ifelse(IID%in%qc5.pcair$unrels,T,F))
+# Add ancestries
+## NOTE: I don't like this code but the GDS conversion can change IDs in unpredictable ways (depending on whether FIDs and IIDs are unique) which makes a join-based solution unreliable. It should (!) work as the sorting ensures an identical order of samples.
+qc5.ref.ancestry <- qc5.ref.bfile[["pheno"]]
+## In the following conditional statement, "1" indicates that there were matches between the unaltered genotype IIDs and the GDS IDs. If so, the variable IID2 is still created for compatibility with downstream code, though just as a copy of IID.
+if (max(qc5.ref.ancestry$IID %in% qc5.pca$IID)==1) {
+    qc5.ref.ancestry <- mutate(qc5.ref.ancestry, IID2=IID) %>%
+                        arrange(IID2)
+## If not, then IID2 is created by merging FID and IID with the separator used by GDS.
+    } else {
+    qc5.ref.ancestry <- mutate(qc5.ref.ancestry, IID2=paste(FID,IID,sep="-")) %>%
+                        arrange(IID2)
+    }
+qc5.pca$bga <- params$dataset.short
+qc5.pca$bga[qc5.pca$ref==T] <- qc5.ref.ancestry$biogeographic_group
+# Create palette and factor definitions
+huddart2018.levels <- c("AAC","AME","EAS","EUR","LAT","NEA","OCE","SAS","SSA",params$dataset.short)
+huddart2018.insample <- huddart2018.levels[huddart2018.levels %in% unique(qc5.pca$bga)]
+
+huddart2018.palette <- c("#f6b068","#dffb94","#ffe286","#3cc9a7","#5a4cae","#9ce4a4","#1185c2","#ff592d","#e50043","grey")
+huddart2018.palette <- setNames(huddart2018.palette,c("AAC","AME","EAS","EUR","LAT","NEA","OCE","SAS","SSA",params$dataset.short))
+huddart2018.palette.insample <- huddart2018.palette[huddart2018.insample]
+
+huddart2018.labels <- c("African American / Afro-Caribbean","American","East Asian","European","Latino","Near Eastern / North African","Oceanian","South Asian","Sub-Saharan African",params$dataset.short)
+huddart2018.labels <- setNames(huddart2018.labels,c("AAC","AME","EAS","EUR","LAT","NEA","OCE","SAS","SSA",params$dataset.short))
+huddart2018.labels.insample <- huddart2018.labels[huddart2018.insample]
+
+# Reorder data frame for plotting and labelling
+qc5.pca <- qc5.pca %>%
+           mutate(bga = factor(bga,levels=huddart2018.insample),
+                  bga = fct_infreq(bga)) %>% # Reorder by group size
+           arrange(bga,IID) %>% # Arrange for plotting order
+           mutate(bga = fct_relevel(bga,huddart2018.insample)) # Relevel for legend order
+
+qc5.rpcdata.p1 <- ggplot(subset(qc5.pca), aes(x = PC1, y= PC2, colour=bga,fill=bga)) +
+              geom_scattermore(alpha = 0.5,pointsize = 6.5) +
+              geom_point(data=subset(qc5.pca,ref==F),shape=22, alpha = 0.5,size = 5,  colour="black",show.legend = FALSE) +
+              scale_colour_manual(values=huddart2018.palette.insample,
+                                  labels=huddart2018.labels.insample,
+                                  aesthetics = c("colour", "fill"),
+                                  drop=T) +
+              labs(title="Biogeographic Ancestry PC-AiR",y="PC2",x="PC1",color="",fill="") +
+  guides(colour = guide_legend(override.aes = list(alpha=1,size=5),
+                               nrow=2,byrow=TRUE)) +
+  theme(axis.title=element_text(),
+        axis.text=element_blank(),
+        axis.ticks=element_blank(), 
+        legend.position="bottom",
+        legend.direction = "horizontal")
+qc5.rpcdata.p2 <- ggplot(subset(qc5.pca), aes(x = PC3, y= PC4, colour=bga,fill=bga)) +
+              geom_scattermore(alpha = 0.5,pointsize = 6.5) +
+              geom_point(data=subset(qc5.pca,ref==F),shape=22, alpha = 0.5,size = 5,  colour="black",show.legend = FALSE) +
+              scale_colour_manual(values=huddart2018.palette.insample,
+                                  labels=huddart2018.labels.insample,
+                                  aesthetics = c("colour", "fill"),
+                                  drop=T) +
+              labs(title=" ",y="PC4",x="PC3",color="",fill="") +
+  guides(colour = guide_legend(override.aes = list(alpha=1,size=5),
+                               nrow=2,byrow=TRUE)) +
+  theme(axis.title=element_text(),
+        axis.text=element_blank(),
+        axis.ticks=element_blank(), 
+        legend.position="bottom",
+        legend.direction = "horizontal")
+ggarrange(qc5.rpcdata.p1, qc5.rpcdata.p2,ncol=2,nrow=1,
+          common.legend = TRUE, legend="bottom") 
+```
+
+The Tracy-Widom test (Patterson et al. 2006; PMID: <span style="color: dodgerblue;">[17194218](https://doi.org/10.1371%2Fjournal.pgen.0020190)</span>) selected the `r qc5.tw` first eigenvectors of the dataset for the ancestry inference procedure. A model based on Fisher's Linear Discriminant Analysis (Yang et al. 2005; PMID: <span style="color: dodgerblue;">[16193326](https://doi.org/10.1007/s00439-005-0012-1)</span>) was trained on the known ancestries of the reference samples with principal components as predictors. 
+
+```{r qc5.lda}
+# Load model results
+tar_load(qc5.train)
+tar_load(qc5.youden)
+tar_load(qc5.test)
+```
+
+```{r qc5.confusion_matrix}
+# Output training statistics of LDA model
+qc5.train.cm <- confusionMatrix(qc5.train$pred$obs,qc5.train$pred$pred,mode = "everything")
+qc5.train.cm <- qc5.train.cm$byClass[,c("Prevalence","Sensitivity","Specificity","Pos Pred Value","Neg Pred Value","F1","Balanced Accuracy")]
+rownames(qc5.train.cm) <- gsub("Class: ", "", rownames(qc5.train.cm)) # Remove the string "Class:"
+# Cleanup confusion matrix
+qc5.train.cm <- as.data.frame(qc5.train.cm) %>%
+                setNames(c("prev","sens","spec","ppv","npv","f1","acc")) %>%
+                mutate(across(everything(),scales::percent_format(accuracy=0.01))) %>%
+                mutate(bga = factor(row.names(.),
+                                    labels=c("African American / Afro-Caribbean","American","East Asian","European","Latino","Near Eastern / North African","Oceanian","Central / South Asian","Sub-Saharan African"),                                    levels=c("AAC","AME","EAS","EUR","LAT","NEA","OCE","SAS","SSA"))) %>%
+                select(c("bga","prev","sens","spec","acc"))
+```
+```{r qc5.training.table}
+kable(qc5.train.cm,
+      row.names=F,
+      col.names=c("Biogeographic Ancestry","Prevalence","Sensitivity","Specificity","Balanced Accuracy"),
+      caption="LDA model training statistics, based on 5 repeats of a 10-fold cross-validation routine.",
+      longtable=F)
+```
+
+```{r qc5.export.table}
+qc5.na <- subset(qc5.test,biogeographic_prediction=="Unclassified")
+qc5.export <- left_join(qc5.test,
+                        select(qc5.pca,c("IID",paste0("PC",1:qc5.tw))),
+                        by=c("IID2"="IID")) %>%
+              mutate(IID2=NULL)
+write.table(qc5.export, file=paste0(outpath,"/",infile,".qc5.ancestry_inference.txt"),col.names=T,row.names=F,quote=F,sep="\t")
+```
+
+The trained LDA classification model was then applied to the principal components of the input dataset to predict the most likely ancestral category of each sample. A threshold for ancestry inference was set by finding, for each ancestral category, the probability cutoff maximising the value of Youden's J index (Perkins & Schisterman 2006; PMID: <span style="color: dodgerblue;">[16410346](https://doi.org/10.1093/aje/kwj063)</span>). To avoid assigning any individual to multiple ancestries, only probability cutoffs greater than 0.501 were evaluated. 
+
+```{r qc5.results.table}
+# Reformat ancestral categories on the optimal threshold data frame
+qc5.youden <- qc5.youden %>%
+              mutate(biogeographic_group=factor(biogeographic_group,
+                                                labels=c("Unclassified","African American / Afro-Caribbean","American","East Asian","European","Latino","Near Eastern / North African","Oceanian","Central / South Asian","Sub-Saharan African"),                       levels=c("UNK","AAC","AME","EAS","EUR","LAT","NEA","OCE","SAS","SSA")))
+# Make a summary table
+qc5.test.table <- as.data.frame(table(qc5.test$biogeographic_prediction)) %>%
+                  full_join(qc5.youden,by=c("Var1"="biogeographic_group")) %>%
+  select(c("Var1","threshold","Freq")) %>%
+  subset(!(is.na(threshold)&Freq==0))
+# Output
+kable(qc5.test.table,
+      col.names=c("Predicted Biogeographic Ancestry","Probability Threshold","Number of Samples"),
+      caption="LDA model results.",
+      row.names=F,
+      longtable=F)
+```
+
+`r if(nrow(qc5.na)==0) {"<!--"}`
+
+For **`r nrow(qc5.na)`** individuals none of the ancestral probabilities reach their optimal probability threshold. These individuals have been labelled _"Unclassified"_. Detailed inspection of ancestral probabilities is recommended to evaluate the potential admixture patterns of unclassified individuals. 
+
+`r if(nrow(qc5.na)==0) {"-->"}`
+
+```{r lo.results}
+# LiftOver requested
+if (isTRUE(params$lo)) {
+  tar_load(liftOver.snp)
+  tar_load(bfile.liftOver)
+  lo.rsid <- bfile.liftOver$bim$SNP[grep("rs",bfile.liftOver$bim$SNP)]
+  if (params$lo.in==0){genomic.build <- chip.overlap$build
+    } else {genomic.build <- params$lo.in}} else {
+	genomic.build <- NA
+	lo.rsid <- NA}
+```
+
+`r if(!params$lo & !params$gh) {"<!--"}`
+
+# Additional Operations
+
+`r if(!params$lo & !params$gh) {"-->"}`
+
+`r if(!params$lo) {"<!--"}`
+
+## LiftOver
+
+The curated genotype data in build GRCh`r genomic.build` was re-mapped to build GRCh`r params$lo.out`. The positions of **`r nrow(liftOver.snp)`** markers were successfully converted using the LiftOver procedure implemented in the R package <span style="color: dodgerblue;">*[rtracklayer](https://www.bioconductor.org/packages/release/workflows/vignettes/liftOver/inst/doc/liftov.html)*</span>. Any markers in conversion-unstable loci (Ormond et al. 2021, PMID: <span style="color: dodgerblue;">[33822888](https://doi.org/10.1093/bib/bbab069)</span>) were identified and removed to prevent downstream errors.
+
+`r if(params$lo & !params$lo.out=="38") {"<!--"}`
+
+Whenever possible, converted markers were renamed to match dbSNP release 156 using the 1000 Genomes Phase 3 (2022) files from the PLINK2 <span style="color: dodgerblue;">[website](https://www.cog-genomics.org/plink/2.0/resources)</span>. **`r length(lo.rsid)`** markers were assigned dbSNP IDs. The IDs of other markers were set to *CHR:BP:REF:ALT*.
+
+`r if(params$lo & !params$lo.out=="38") {"-->"}`
+
+`r if(params$lo & !params$lo.out=="37") {"<!--"}`
+
+Whenever possible, converted markers were renamed to match dbSNP release 142 using the 1000 Genomes Phase 3 (2016) files from the PLINK2 <span style="color: dodgerblue;">[website](https://www.cog-genomics.org/plink/2.0/resources)</span>. **`r length(lo.rsid)`** markers were assigned dbSNP IDs. The IDs of other markers were set to *CHR:BP:REF:ALT*.
+
+`r if(params$lo & !params$lo.out=="37") {"-->"}`
+
+`r if(params$lo & !params$lo.out=="36") {"<!--"}`
+
+Whenever possible, converted markers were renamed to match dbSNP release 137 using the HapMap2 Release 23 (2008) files from the PLINK <span style="color: dodgerblue;">[website](https://zzz.bwh.harvard.edu/plink/res.shtml)</span>. **`r length(lo.rsid)`** markers were assigned dbSNP IDs. The IDs of other markers were set to *CHR:BP:REF:ALT*.
+
+`r if(params$lo & !params$lo.out=="36") {"-->"}`
+
+Note this LiftOver procedure is designed for bi-allelic SNP content as expected in array datasets. See Genovese et al. 2024 (PMID: <span style="color: dodgerblue;">[33822888](https://doi.org/10.1093/bioinformatics/btae038)</span>) for a more general alternative.
+
+`r if(!params$lo) {"-->"}`
+
+```{r gh.passed}
+# Genotype Harmonisation requested
+if (params$gh) {
+  tar_load(bfile.gh)
+  gh.bim <- bfile.gh[["bim"]]
+  gh.rsid <- gh.bim$SNP[grep("rs",gh.bim$SNP)]
+} else {
+  gh.bim <- pvar.qc0
+  gh.rsid <- gh.bim$SNP[grep("rs",gh.bim$SNP)]
+}
+```
+
+`r if(!params$gh) {"<!--"}`
+
+## Harmonisation to imputation reference
+
+`r if(params$gh & !params$gh.ref=="hrc") {"<!--"}`
+
+<span style="color: dodgerblue;">[Genotype Harmonizer](https://github.com/molgenis/systemsgenetics/wiki/Genotype-Harmonizer)</span> was used to align curated markers to the Haplotype Reference Consortium (<span style="color: dodgerblue;">[HRC](http://www.haplotype-reference-consortium.org/)</span>) imputation panel. **`r nrow(gh.bim)`** markers were successfully harmonised. Per-chromosome block-gzipped VCFs have been created for submission to the <span style="color: dodgerblue;">[Michigan Imputation Server](https://imputationserver.sph.umich.edu/)</span>.
+
+`r if(params$gh & !params$gh.ref=="hrc") {"-->"}`
+
+`r if(params$gh & !params$gh.ref=="topmed") {"<!--"}`
+
+<span style="color: dodgerblue;">[Genotype Harmonizer](https://github.com/molgenis/systemsgenetics/wiki/Genotype-Harmonizer)</span> was used to align curated markers to the Trans-Omics for Precision Medicine (<span style="color: dodgerblue;">[TopMED](https://topmed.nhlbi.nih.gov/)</span>) imputation panel. **`r nrow(gh.bim)`** markers were successfully harmonised. Per-chromosome block-gzipped VCFs have been created for submission to the <span style="color: dodgerblue;">[TopMED Imputation Server](https://imputation.biodatacatalyst.nhlbi.nih.gov/)</span>.
+
+`r if(params$gh & !params$gh.ref=="topmed") {"-->"}`
+
+`r if(!params$gh) {"-->"}`
+
+# Output file location
+
+```{r qc6}
+# Load model results
+tar_load(bfile.qc2)
+final.fam <- bfile.qc2[["fam"]]
+final.bim <- bfile.qc2[["bim"]]
+```
+
+**`r nrow(final.bim)`** markers and **`r nrow(final.fam)`** individuals passed all quality control checks.
+
+```{r final.genotypes, results='asis', echo = FALSE}
+file_path <- here(gsub("\\./","",paste0(outpath,"/genotypes")))
+http_address <- glue("file://{file_path}")
+cat("[Curated genotype files.](", http_address, ")")
+```
+
+```{r final.aims, results='asis', echo = FALSE}
+file_path <- here(gsub("\\./","",paste0(params$dataset.outpath,"/ancestry")))
+http_address <- glue("file://{file_path}")
+cat("[Reference and merged files used for ancestry inference.](", http_address, ")")
+```
+
+`r if(!params$lo) {"<!--"}`
+
+```{r final.lo, results='asis', echo = FALSE}
+file_path <- here(gsub("\\./","",paste0(params$dataset.outpath,"/liftOver")))
+http_address <- glue("file://{file_path}")
+cat("[Re-mapped files generated by LiftOver.](", http_address, ")")
+```
+
+`r if(!params$lo) {"-->"}`
+
+`r if(!params$gh) {"<!--"}`
+
+```{r final.gh, results='asis', echo = FALSE}
+file_path <- here(gsub("\\./","",paste0(params$dataset.outpath,"/imputeMe")))
+http_address <- glue("file://{file_path}")
+cat("[Imputation-ready files generated by Genotype Harmonizer.](", http_address, ")")
+```
+
+`r if(!params$gh) {"-->"}`
+
+```{r final.qc.all, results='asis', echo = FALSE}
+file_path <- here(gsub("\\./","",paste0(params$dataset.outpath)))
+http_address <- glue("file://{file_path}")
+cat("[Parent folder including all intermediate genotype files.](", http_address, ")")
+```
+
+**NOTE:** Curated files are provided in PLINK2 *.pgen/.psam/.pvar* format, but are identical in marker and sample content to intermediate *.qc2* files in PLINK1 *.bed/.bim/.fam* format.
