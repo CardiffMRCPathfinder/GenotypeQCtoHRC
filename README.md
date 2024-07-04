@@ -1,3 +1,40 @@
+				░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▓▓▓▓▒▒▒▓▓▒▒░░░
+				░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▓▓████▓▒▒▓▓██▓▒░░░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▓██████▓▒▒▓█████▒░░░░░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▓██████▒▒▒████████░░░░░░░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓██████▒▒▒██████████▓░░░░░░░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░░░▒░░░░░░░░░░░░░░░░░░░░░▓█████▓▒▒█████████████▓░░░░░░░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░▒██▒░▒█▒░░░░░░░░░░░░░░▒████▓▒▒▓████████████▓▓▒▒░░░░░░░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░▓█▓▒▓░█▓░░░░░░░░░░░░░████▒▒▓████████▓▒▒▒▒▓▓▓░░░░░░░░░░░░░
+				░░░░░░░▒█████▓▓▓▓▓▓▓████████▓█▒░░░░░░░░░░░░██▓▒▒▓█████▓▒▒▒▓▓██████░░░░░░░▒░░░░░░
+				░░░░░░░░░▒▒██▓▓█████████████████▓░░░░░░░░░█▓▒▒█████▓▒▒▓██████████▒░░░░░▒███▒░░░░
+				░░░░░▒▓██▓▓▓▓▓▓▓▓██████▒░░▓█████████▓▒░░░▓░▒████▓▓▓██████████████▓░░░░▒█████▒░░░
+				░░░░░░░░▒░▒▒▒▒▓█▓█▓░▒██████████████░░░░░░▒██████████████▓▓▒▒▒▒▒▒▒░░░░░▓█▓▓▓██▓░░
+				░░░░░░░░░░░░▓█▓▓▓▓▓▓▓██████████████▒▒░░░▒█████████▓▓▒▒▒▓▓█████▓░░░░░░░▓█▓█▓░▓██░
+				░░░░░░░░░░░░▒███████████████████████▓▒▒░████████▓▓▓███████████░░░░░░░░░█▒██░░░░░
+				░░░░░░░░░░░░▓▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓█████▓░░░░▒██████████████████████░░░░░░░░░░░██▒░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░▓▓███▓██████▓▓▓▒▒████████▓▓▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░▒█▓░░░░
+				░░░░░░░░░░░░░░░░░░░░░░█████▒████████▓▒░░▒█████▓▓▓███████▓░████▓▓▒░░░░░░░░▒█▓▒░░░
+				░░░░░░░░░░░░░░░░░░░░░▓█████▒███████▒░░░░░▒█████████▓▓▓▒▓░▓████████▓░░░░███████▓░
+				░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▒█████████████▓▓██▓▓▓▓▒▓▓▓▓▓▓████████████▓░██▒░░░▒██▓
+				░░░░░░░░░░░░░░░░░░░░▓██████▒▓████████████▓▓████████▒▒███████████████████▓░░░▓▓██
+				░░░░░░░░░░░░▒▒▓▓▓▓▓▒▓████▓▓▓░█████▓▓▓▓▓▓███████████░███████████████████▒▓███▓██▓
+				░░░░▓▓▒▒░░▓████████▓░▓▓▓▓███▓▒▓██░▓█████████████████▓▒██████████████████▓▓▓▓██▒░
+				░░░▓▓▓▓▓▓███████████▓▓█████▓▓▓▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓████▒▓███████████████▒░▒▒▒▒░░░░
+				▒████████▓▒░░░░░░░▒▒▒░▒█▓▒▓███████▓▓▓▓▓▓▓▓████████████▒░▓█████████████▓░░░░░░░░░
+				███████▒▒▓▓░░░░░░░░░░░░░▒███████████████████▓████▓▓▓▒░░▓▒▒▒████████████▒░░░░░░░░
+				▒▒░▒▓▓░░░░░░░░░░░░░░░░░░░▒▓███████▓▓███▓████▓▓▓▒▒░░░░▒████▓▒▒▒▒▒▓▓███████▒▒░░░░░
+				▒▓▒░▒▓▓░░░░░░░░░░░░░░░░░░░░██████▓░▓▓▓▓░▒▒░░░░░░░░░░░█████████▒░░░░░▒██████▓░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░░░░░█████▒░░░░░░░░░░░░░░░░░░░▒███████▓░░░░░░░░░▒█████░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░░░░░████▒░░░░░░░░░░░░░░░░░░░░░▒▓█████▓▒░░░░░░░░░▒████░░░░
+				░░░░░░░░░░░░░░░░░░░░░░░░░░░████░░░░░░░░░░░░░░░░░░░░░░░░░░▓█████░░░░░░░░░▓███▒░░░
+				░░░░░░░░░░░░░░░░░░░░░░░░░░░▓██░░░░░░░░░░░░░░░░░░░░░░░░░░░█████▒░░░░░░░░░░████░░░
+				░░░░░░░░░░░░░░░░░░░░░░░▒▒░░███░░░░░░░░░░░░░░░░░░░░░░░░░▒███▓▒░░░░░░░░░░░░▓███░░░
+				░░░░░░░░░░░░░░░░░░░░██▓██████▓▒░░░░░░░░░░░░░░░░░▒▓▓▓▓░▓██▓░░░░░░░░░░░░░░░▒███▓░░
+				░░░░░░░░░░░░░░░░░░▒████▓████████░░░░░░░░░░░░░▓▓▓▓▓▓▓████▓░░░░░░░░░░░░░░░░▓████░░
+				░░░░░░░░░░░░░░░░▒█▒▓▓░▒█▓▓▒░▒▒▒▓░░░░░░░░░░░░▓▓█▒▓▓▓▓▓▓▓██▒██▓░░░░░░▓▒▓▓█▓▓████▓░
+				░░░░░░░░░░░░░░░░░░░░▒▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓░▒▒▒█░▒▓▒▒█
+ 
 # DRAGON-Data "GenotypeQCtoHRC" pipeline v.2.0
 
 ## Description
@@ -7,16 +44,17 @@ The purpose of this update is to simplify the use of the pipeline by streamlinin
 
 ## Roadmap
 
-Currently, this is an *BETA* version. All functions enabling genotype quality control described in the paper are working, with some additions.
+Currently, this is an **BETA** version. All functions enabling genotype quality control described in the paper are working, with some additions as below:
 
-- Genotype QC :white_check_mark:
+- Genotype analysis of missingness and Hardy-Weinberg equilibrium :white_check_mark:
 - Population structure and relatedness checks :white_check_mark:
-- Biogeographical ancestry inference :white_check_mark:
+- Heterozygosity analysis for sex chromosome markers :white_check_mark:
+- Biogeographical ancestry inference[^1] :white_check_mark:
 - Use of [1000 Genomes Phase 3](https://doi.org/10.1038/nature15393) as ancestral reference panel :white_check_mark:
 - Liftover (GRCh36/GRCh37/GRCh38) :white_check_mark:
 - Data preparation for Michigan Imputation Server :white_check_mark:
 - Data preparation for TopMED Imputation Server :white_check_mark:
-- Update of the public GitHub website :white_check_mark:
+- Heterozygosity analysis for autosomal markers :white_large_square:
 - Containerisation (Docker/Apptainer) :white_large_square:
 
 ## Making it work
@@ -48,11 +86,12 @@ For a quick test, the **[Behar et al. 2010](https://doi.org/10.1038/nature09103)
 ## Dependencies
 
 The pipeline was originally developed in a Windows system using **[R](https://cran.r-project.org/)** v4.3 and [RStudio](https://posit.co/products/open-source/rstudio/) v2023.12. It has since been tested in Windows, Mac and Unix using **R v4.4**. The following packages are required to run it from source:
-- CRAN: rmarkdown[^1], optparse, targets, tarchetypes, here, pbapply, tidyverse, parallelly, VGAM, AssocTests, caret, probably, tint, glue, colorspace, scales, scattermore, ggpubr.
+- CRAN: rmarkdown[^2], optparse, targets, tarchetypes, here, pbapply, tidyverse, parallelly, VGAM, AssocTests, caret, probably, tint, glue, colorspace, scales, scattermore, ggpubr.
 - GitHub: [slugify](https://github.com/cannin/slugify/).
 - Bioconductor: BiocParallel, GWASTools, GENESIS, SNPRelate, rtracklayer.
 
-As some pipeline requirements (software[^2] and reference files) cannot be shared in this repository, the *dragondata_extra* folder is supplied partially filled. Please read the **README** files within for full instructions on how to populate it.
+As some pipeline requirements (software[^3] and reference files) cannot be shared in this repository, the *dragondata_extra* folder is supplied partially filled. Please read the **README** files within for full instructions on how to populate it.
+
 This is a provisional solution and a better method for file and depencency sharing will be implemented soon.
 
 ## Credits
@@ -68,13 +107,13 @@ This is a provisional solution and a better method for file and depencency shari
 ## Citation
 
 If this script is helpful for your work, just reference the main [DRAGON-Data](https://doi.org/10.1192/bjo.2022.636) paper. 
+
 If it ends up being *very* helpful, please let us know so we can keep fighting impostor syndrome one day at a time... :relieved:
 
 ## Contact
 
 Please submit suggestions and bug-reports at <https://github.com/CardiffMRCPathfinder/GenotypeQCtoHRC/issues>.
 
-## Notes
-
-[^1]: The RMarkdown [setup](https://bookdown.org/yihui/rmarkdown/installation.html) can be problematic in some HPC servers. Please ensure the linked [Pandoc](https://pandoc.org/) installation is v2.5+.
-[^2]: This includes PLINK (v1.9 and v2) and Genotype Harmonizer v1.4.20+, which requires Java. Please check that these files have the appropriate permissions to be executed once you copy them to your local or HPC system.
+[^1]: Originally described in (Legge et al. 2019)[https://doi.org/10.1038/s41380-018-0335-7] and updated to use all available SNPs with high F~ST~ values as AIMs.
+[^2]: The RMarkdown [setup](https://bookdown.org/yihui/rmarkdown/installation.html) can be problematic in some HPC servers. Please ensure the linked [Pandoc](https://pandoc.org/) installation is v2.5+.
+[^3]: This includes PLINK (v1.9 and v2) and Genotype Harmonizer v1.4.20+, which requires Java. Please check that these files have the appropriate permissions to be executed once you copy them to your local or HPC system.

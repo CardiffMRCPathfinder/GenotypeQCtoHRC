@@ -1,22 +1,24 @@
-# Last update
+# Genomic build remapping: LiftOver reference
+
+## Last update
 All downloads in this folder were last updated on **2024-03-28**.
 
 
-# UCSC chains
+## UCSC chains
 
-## Files
+### Files
 Hg18ToHg19.chain
 Hg18ToHg38.chain
 Hg19ToHg18.chain
 Hg19ToHg38.chain
 Hg38ToHg19.chain
 
-## Download Source
+### Download Source
 http://hgdownload.soe.ucsc.edu/goldenPath/hg38/liftOver/
 http://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/
 http://hgdownload.soe.ucsc.edu/goldenPath/hg18/liftOver/
 
-## Original README
+### Original README
 
 The data files ("UCSC Chain Files") in this directory are property of The
 Regents of the University of California, and made available free for
@@ -38,24 +40,24 @@ Files by you must include this README file with these license restrictions, in
 the same archive or directory with the chain files.
 
 
-# Ensembl chains 
+## Ensembl chains 
 
-## Files
+### Files
 NCBI36ToGRCh37.chain
 NCBI36ToGRCh38.chain
 GRCh37ToNCBI36.chain
 GRCh37ToGRCh38.chain
 GRCh38ToGRCh37.chain
 
-## Download Source 
+### Download Source 
 http://ftp.ensembl.org/pub/assembly_mapping/homo_sapiens/
 
 
-# Conversion-unstable positions (CUPs)
+## Conversion-unstable positions (CUPs)
 
-## Files
+### Files
 Hg19.Ormond2021.CUPs.bed
 Hg38.Ormond2021.CUPs.bed
 
-## Download Source 
+### Download Source 
 https://github.com/cathaloruaidh/genomeBuildConversion

@@ -1,4 +1,6 @@
-# Required files
+# Biogeographic Ancestry Estimation: 1000 Genomes Project Reference Panel
+
+## Required files
 Please download a copy of the 1000 Genomes reference panel (build 37, release 2016-05-05) from:
 https://www.cog-genomics.org/plink/2.0/resources#phase3_1kg
 
@@ -8,5 +10,5 @@ Write the output with **--make-pgen** to a set of pgen/pvar/psam files with the 
 Finally, download and decompress cross-population FST estimates from here: https://walters.psycm.cf.ac.uk/dragondata/ancestry_reference_1kgp.tar
 MD5 checksum: https://walters.psycm.cf.ac.uk/dragondata/ancestry_reference_1kgp.tar.md5
 
-# Last update
+## Last update
 This 1000 Genomes release was last updated by the PLINK authors on **2022-04-13**.
