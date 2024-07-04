@@ -58,11 +58,21 @@ This is a provisional solution and a better method for file and depencency shari
 ## Credits
 
 - Original *GenotypeQCtoHRC* code by Leon Hubbard.
+- Refactoring to Targets and further improvements by [Antonio Pardiñas](https://github.com/Pintaius).
 - Computational support by Lynsey Hall.
 - Testing by Jack Underwood, Djenifer Kappel and Jessica Yang.
 - Targets [package](https://docs.ropensci.org/targets/) by Will Landau.
 - "Tint is not Tufte" [HTML theme](https://github.com/eddelbuettel/tint) by Dirk Eddelbuettel.
 - Chipendium [procedure](https://www.chg.ox.ac.uk/~wrayner/strand/) by Will Rayner. 
+
+## Citation
+
+If this script is helpful for your work, just reference the main [DRAGON-Data](https://doi.org/10.1192/bjo.2022.636) paper. 
+If it ends up being *very* helpful, please let us know so we can keep fighting impostor syndrome one day at a time... :relieved:
+
+## Contact
+
+Please submit suggestions and bug-reports at <https://github.com/CardiffMRCPathfinder/GenotypeQCtoHRC/issues>.
 
 ## Notes
 
