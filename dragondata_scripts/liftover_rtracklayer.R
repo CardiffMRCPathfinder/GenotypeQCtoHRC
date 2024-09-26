@@ -34,12 +34,19 @@ if (build.in == build.out) {
   message("Same genomic build specified as input and output arguments. LiftOver aborted.") 
   bim.old <- select(bimfile, c("SNP","BP"))
   return(bim.old)
+
+# Do not liftover GRCh38 -> GRCh36 as no .chain file available (same problem avoided below)  
+} else if (build.out == "Hg18" & build.in == "Hg38"){
+
+  message("Cannot directly convert a Hg38 input into Hg18 coordinates. Please attempt conversion to Hg37 first. LiftOver aborted.") 
+  bim.old <- select(bimfile, c("SNP","BP"))
+  return(bim.old)
   
 } else {
 
 # Override argument: Do not attempt reverse liftover for GRCh36 -> GRCh38 conversions
-if (build.in == "Hg18" & build.in == "Hg38") {check.rev <- F} # No .chain file available
-
+if (build.in == "Hg18" & build.out == "Hg38") {check.rev <- F} # No .chain file available
+  
 # Munge BIM file
 bim <- mutate(bimfile,
 CHR=case_match(CHR, .default=CHR,
