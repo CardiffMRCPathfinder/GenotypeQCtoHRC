@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 2026-04-22
+
+## Added
+
+- QC4: Added an option to compute a method-of-moments kinship estimate for large datasets (usually >15K individuals) before PC-AiR.
+- QC4: A simplified relatedness plot is now rendered in datasets where the relatedness report is very large (> 8GB in memory).
+
+## Changed
+
+- QC4: PC-Relate now uses a sample-size-dependant block size for slightly better performance with large datasets.
+
+## Fixed
+
+- QC3: Skipped properly when both sex chromosomes are missing, without causing a downstream error.
+- Genotype Harmonizer skipped properly when not requested, without causing a downstream error.
+- SNP renaming function won't attempt to flip markers that are correctly matched.
+- Markdown report now renders correctly even when both sex chromosomes are missing.
+
 ## 2024-07-04
 
 ## Added

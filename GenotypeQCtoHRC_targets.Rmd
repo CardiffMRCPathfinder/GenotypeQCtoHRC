@@ -134,6 +134,10 @@ bim = bfile[["bim"]]
 fam = bfile[["fam"]]
 ```
 
+```{r bim.nonauto}
+tar_load(bfile.nonauto)
+```
+
 The PLINK files provided contain **`r nrow(bim)`** genotyped markers on **`r nrow(fam)`** individuals.
 
 ```{r backup.location, results='asis', echo = FALSE}
@@ -193,7 +197,7 @@ Warning! **`r nrow(bfile.nonauto$nonchr)`** markers outside of standard (autosom
 ```{r problem.extraCHR, results='asis', echo = FALSE}
 file_path <- here(gsub("\\./","",paste0(outpath,"/",infile,".non_standard_chr.txt")))
 http_address <- glue("file://{file_path}")
-cat("[Markers with non-standard chromosomes.](", http_address, ")")
+cat("[A list of markers with non-standard chromosomes is available here.](", http_address, ")")
 ```
 
 `r if(params$check & nrow(bfile.nonauto$nonchr)==0) {"-->"}`
@@ -205,7 +209,7 @@ Warning! **`r nrow(bim.problem.Balleles)`** markers with improperly coded allele
 ```{r problem.Balleles, results='asis', echo = FALSE}
 file_path <- here(gsub("\\./","",paste0(outpath,"/",infile,".B_allele.txt")))
 http_address <- glue("file://{file_path}")
-cat("[Markers with A/B allele codes.](", http_address, ")")
+cat("[A list of markers with A/B allele codes is available here.](", http_address, ")")
 ```
 
 `r if(params$check & nrow(bim.problem.Balleles)==0) {"-->"}`
@@ -224,10 +228,6 @@ bim.summary <- mutate(bim.summary,
 kable(bim.summary,
       col.names=c("Chromosome","Number of SNPs","Start basepair","End basepair"),
       caption="Genotyped SNP content across chromosomes.")
-```
-
-```{r bim.nonauto}
-tar_load(bfile.nonauto)
 ```
 
 `r if(nrow(bfile.nonauto$mito)==0) {"<!--"}`
@@ -431,7 +431,11 @@ if (nrow(bfile.nonauto$x)>0) {
 tar_load(qc3)
 qc3.ind.dataset <- qc3[["ind"]]
 tar_load(qc3.problem)
-tar_load(bfile.qc3)} else {
+tar_load(bfile.qc3,strict=F)
+if (nrow(bfile.nonauto$y)==0){ # No Y data
+qc3.ind.dataset <- mutate(qc3.ind.dataset,
+         YRATE=NA,
+         potential.aneuploidy=NA)}} else {
 qc3 <- data.frame(character(0))
 qc3.ind.dataset <- data.frame(YRATE=character(0),YCOUNT=character(0),potential.aneuploidy=character(0))
 qc3.problem <- data.frame(character(0))
@@ -439,7 +443,7 @@ bfile.qc3 <- data.frame(character(0))
 }
 ```
 
-`r if(nrow(bfile.nonauto$x)==0 | nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)>0) {"<!--"}`
+`r if(nrow(bfile.nonauto$x)==0 | (nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)>0)) {"<!--"}`
 
 This test assesses homozygosity estimates from the X chromosome using the inbreeding coefficient F (Wright 1921, PMID: <span style="color: dodgerblue;">[17245962](https://doi.org/10.1093/genetics/143.4.1499)</span>) calculated for each sample over LD-independent X-linked markers ($r^{2} \le 0.2$). Samples at the extremes of the distribution of the F statistic are likely genetic females (low F) or genetic males (high F).
 
@@ -456,9 +460,9 @@ qc3.ind.dataset.p1
 }
 ```
 
-`r if(nrow(bfile.nonauto$x)==0 | nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)>0) {"-->"}`
+`r if(nrow(bfile.nonauto$x)==0 | (nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)>0)) {"-->"}`
 
-`r if(nrow(bfile.nonauto$x)==0 | nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)==0) {"<!--"}`
+`r if(nrow(bfile.nonauto$x)==0 | (nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)==0)) {"<!--"}`
 
 This test assesses homozygosity estimates from the X chromosome using the inbreeding coefficient F (Wright 1921, PMID: <span style="color: dodgerblue;">[17245962](https://doi.org/10.1093/genetics/143.4.1499)</span>) calculated for each sample using LD-independent X-linked markers ($r^{2} \le 0.2$). Samples at the extremes of the distribution of the F statistic are likely genetic females (low F) or genetic males (high F). Coverage for Y-linked markers can also be inspected to more accurately infer the sex of ambiguous samples. Furthermore, the combination of both metrics can pinpoint individuals as potential carriers of sex chromosome aneuploidies such as the Turner (X0; high F and low Y coverage) or Klinefelter (XXY; low F and high Y coverage) syndromes (Igo et al. 2016, PMID: <span style="color: dodgerblue;">[27367164](https://doi.org/10.1002%2Fcphg.15)</span>). 
 
@@ -486,7 +490,7 @@ qc3.ind.dataset.p2
 
 In some cases, Y chromosome coverage rates of female samples can be >10%, though there should still be a clear difference between female and male samples in this metric. This is an issue <span style="color: dodgerblue;">[reported](https://groups.google.com/g/plink2-users/c/wzTNgigro-Q/m/wUq3xIz6whkJ)</span> for some legacy genotyping arrays where autosomal or X-linked probes were erroneously coded as Y-linked.
 
-`r if(nrow(bfile.nonauto$x)==0 | nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)==0) {"-->"}`
+`r if(nrow(bfile.nonauto$x)==0 | (nrow(bfile.nonauto$x)>0 & nrow(bfile.nonauto$y)==0)) {"-->"}`
 
 ```{r qc3.ind.report}
 # Create list of problematic individuals
@@ -540,6 +544,7 @@ tar_load(qc4.pcrelate)
 ```{r qc4.kin.report, fig.cap=paste0("For each pair of samples in the dataset, the plot shows proportions of markers with no identical-by-descent (IBD) alleles and estimated kinship values. These have been corrected using ",params$qc4.pcrelate," principal components and rescaled to the equivalent PLINK metric. ",nrow(qc4.related)," pairs of individuals have a relatedness coefficient greater than ",params$qc4.kin," (red line). Among those, ",nrow(qc4.duplicated)," pairs have been identified as potentially duplicated samples or monozygotic twins.")}
 ### Generate robust kinship estimates
 phiframe <- qc4.pcrelate$kinBtwn
+rm(qc4.pcrelate) # Cleanup (tends to be a very large object)
 # Assign relatedness based on kinship/IBD0
 phiframe$relatedness <- ibdAssignRelatednessKing(kc=phiframe$kin, ibs0=phiframe$k0)
 phiframe$relatedness <- factor(phiframe$relatedness,levels=c("Dup","PO","FS","Deg2","Deg3","U","Q"),labels=c("Duplicates/Twins","Parent-Offspring","Full Siblings","2nd Degree","3rd Degree","Unrelated","Unknown"))
@@ -554,6 +559,7 @@ qc4.duplicated <- subset(phiframe,relatedness=="Duplicates/Twins")
 # Plot!
 range01 <- function(x){(x-min(x))/(max(x)-min(x))} # Custom function to do 0-1 standardisation
 phiframe$p0 <- range01(phiframe$k0)
+if (object.size(phiframe) <= 8589934592) { # Sets a 8GB limit for plotting the data, creates alternative (smaller) plot if it goes over threshold
 phiframe.p1 <- ggplot(subset(phiframe,relatedness != "Unrelated"), aes(x = p0, y= kin,fill=relatedness,colour=relatedness)) +
   geom_scattermore(data=phiframe, aes(x = p0, y = kin),
                    alpha = 0.5, pointsize = 6.5) +
@@ -567,7 +573,18 @@ phiframe.p1 <- ggplot(subset(phiframe,relatedness != "Unrelated"), aes(x = p0, y
   theme(axis.title=element_text(),
         legend.position="right",
         legend.direction = "vertical")
-phiframe.p1
+phiframe.p1 } else {
+phiframe.sum <- summarise(group_by(subset(phiframe,relatedness != "Unrelated"),relatedness),pairs=n())
+phiframe.p1 <- ggplot(data=phiframe.sum, aes(y = pairs, x = relatedness, fill=relatedness)) +
+  geom_bar(stat = "identity") +
+  scale_fill_discrete_sequential(palette="Batlow", rev=F, drop=T,nmax=6) +
+  labs(title="PC-Relate kinship distribution",
+       subtitle="Dataset too large to render main plot, summary plot with related pairs shown instead",
+       y="Pairs of samples",x="Kinship category",fill="") +
+  theme(axis.title=element_text(),
+        legend.position="right",
+        legend.direction = "vertical")
+phiframe.p1 }
 ```
 
 # QC Step 5: Biogeographic ancestry inference
@@ -592,7 +609,7 @@ These analyses are based on the procedure described in Legge et al. 2019 (PMID: 
 
 `r if(params$qc5.ref=="aadr") {"-->"}`
 
-```{r qc5.pca.report, fig.cap=paste0("Results from a PC-AiR analysis on ",qc5.pcair$nsnps," AIMs. 100 principal components were computed in the reference samples. Using the \"prediction\" algorithm implemented in PC-AiR, the input dataset samples (grey squares) were projected into the reference PC-coordinates.")}
+```{r qc5.pca.plot}
 # Create PC dataframe and add IDs
 qc5.pca <- as.data.frame(qc5.pcair$vectors)
 colnames(qc5.pca) <- paste0("PC",1:100)
@@ -663,8 +680,11 @@ qc5.rpcdata.p2 <- ggplot(subset(qc5.pca), aes(x = PC3, y= PC4, colour=bga,fill=b
         axis.ticks=element_blank(), 
         legend.position="bottom",
         legend.direction = "horizontal")
+```
+
+```{r qc5.pca.report, fig.cap=paste0("Results from a PC-AiR analysis on ",qc5.pcair$nsnps," AIMs. 100 principal components were computed in the reference samples. Using the prediction algorithm implemented in PC-AiR, the input dataset samples (grey squares) were projected into the reference PC-coordinates.")}
 ggarrange(qc5.rpcdata.p1, qc5.rpcdata.p2,ncol=2,nrow=1,
-          common.legend = TRUE, legend="bottom") 
+          common.legend = TRUE, legend="bottom")
 ```
 
 The Tracy-Widom test (Patterson et al. 2006; PMID: <span style="color: dodgerblue;">[17194218](https://doi.org/10.1371%2Fjournal.pgen.0020190)</span>) selected the `r qc5.tw` first eigenvectors of the dataset for the ancestry inference procedure. A model based on Fisher's Linear Discriminant Analysis (Yang et al. 2005; PMID: <span style="color: dodgerblue;">[16193326](https://doi.org/10.1007/s00439-005-0012-1)</span>) was trained on the known ancestries of the reference samples with principal components as predictors. 

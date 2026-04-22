@@ -293,15 +293,16 @@ list(
                                                                                            ind=read_table(paste0(outpath, "/", opt$file, ".qc3.sexcheck"), col_types="cciicd"))
                                                 } else {list(plinkrun=system2(PLINK1, args=paste0("--allow-extra-chr --threads ", opt$ncores, " --bed ", qc3.output[1], " --bim ", qc3.output[2], " --fam ", qc3.output[3], " --exclude ", bfile.indep[2], " --check-sex ycount ", opt$qc3_max_female_F, " ", opt$qc3_min_male_F, " --out ", outpath, "/", opt$file, ".qc3")),
                                                              ind=read_table(paste0(outpath, "/", opt$file, ".qc3.sexcheck"), col_types="cciicdi"))}),
-  tar_skip(qc3.problem, skip=(opt$qc3==F | nrow(bfile.nonauto$x)==0), subset(qc3$ind, F>=opt$qc3_max_female_F & F<=opt$qc3_min_male_F)),
+  tar_target(qc3.problem, if (opt$qc3==F | nrow(bfile.nonauto$x)==0) {character(0)
+												} else { subset(qc3$ind, F>=opt$qc3_max_female_F & F<=opt$qc3_min_male_F)}),
   
   # QC4: Population structure
   tar_target(bfile.makegds, packages = "SNPRelate",
              snpgdsBED2GDS(bed.fn=qc2b.output[1], bim.fn=qc2b.output[2], fam.fn=qc2b.output[3], out.gdsfn=paste0(outpath, "/", opt$file, ".qc2.gds"), option=snpgdsOption(X=23, Y=24, PAR1=25, PAR2=25, MT=26))),
   tar_file(bfile.gds, {bfile.makegds
                        c(paste0(outpath, "/", opt$file, ".qc2.gds"))}),
-  tar_target(bfile.king, packages = "SNPRelate", king_from_gds(bfile.gds, opt$ncores)),
-  tar_target(qc4.pcair, packages = c("GWASTools", "GENESIS"), pcair_from_gds(bfile.gds, bfile.king, bfile.indep[1], opt$ncores, opt$qc4_pcair)),
+  tar_target(bfile.king, packages = "SNPRelate", king_from_gds(bfile.gds, opt$ncores, opt$qc4_mom)),
+  tar_target(qc4.pcair, packages = c("GWASTools", "GENESIS"), pcair_from_gds(bfile.gds, bfile.king, bfile.indep[1], opt$ncores, opt$qc4_pcair, opt$qc4_mom)),
   
   # QC4: Relatedness
   tar_target(qc4.pcrelate, packages = c("GWASTools", "GENESIS", "BiocParallel"), pcrelate_from_gds(bfile.gds, qc4.pcair, bfile.indep[1], opt$qc4_pcrelate, opt$ncores)),
@@ -392,8 +393,9 @@ list(
                     fam=read_table(liftOver.output[3], col_names=c("FID", "IID", "PatID", "MatID", "Sex", "Pheno"), col_types="ccccii"))}),
   
   # Genotype Harmonisation
-  tar_skip(gh.input, skip=opt$gh==F,
-           if(opt$lo_in %in% c(36,38) & opt$gh_ref=="hrc") {
+  tar_target(gh.input, 
+		   if(opt$gh==F) {(character(0))
+		   } else if(opt$lo_in %in% c(36,38) & opt$gh_ref=="hrc") {
              paste0(outpath, "/liftOver/", opt$file, ".qc2.b", opt$lo_out)
            } else if(opt$lo_in %in% c(36,37) & opt$gh_ref=="topmed") {
              system2(PLINK2, args=paste0(" --threads ", opt$ncores, " --bed ", liftOver.output[1], " --bim ", liftOver.output[2], " --fam ", liftOver.output[3], " --output-chr chrMT --chr 1-23 --make-bed --out ", outpath, "/liftOver/", opt$file, ".qc2.b", opt$lo_out, ".prefix"))
@@ -426,8 +428,9 @@ list(
              } else {
                list(bim=read_table(gh.output[2], col_names=c("CHR", "SNP", "cm", "BP", "A1", "A2"), col_types="ccdicc"),
                     fam=read_table(gh.output[3], col_names=c("FID", "IID", "PatID", "MatID", "Sex", "Pheno"), col_types="ccccii"))}),
-  tar_skip(gh.split.format, skip=opt$gh==F,
-           if(length(unique(bfile.gh$fam$IID))==nrow(bfile.gh$fam)) {
+  tar_target(gh.split.format, 
+		   if(opt$gh==F){character(0)
+		   } else if(length(unique(bfile.gh$fam$IID))==nrow(bfile.gh$fam)) {
              message("Genotype harmonisation to imputation reference panel completed.")
              message("VCF files (v4.2 format) for Imputation Server will have IID as sample identifier.")
              "iid"
@@ -478,7 +481,6 @@ list(
                        qc4.pcrelate
                        qc5.test
                        bfile.liftOver
-                       gh.split
                        invisible(file.remove(list.files(path=paste0(outpath, "/"), pattern="*.infile.tmp.*", full.names = T)))
                        system2(PLINK2, args=paste0(" --threads ", opt$ncores, " --bed ", qc2.output[1], " --bim ", qc2.output[2], " --fam ", qc2.output[3], " --make-pgen --out ", outpath, "/genotypes/", opt$file, ".qc"))
                        c(paste0(outpath, "/genotypes/", opt$file, ".qc.pgen"), paste0(outpath, "/genotypes/", opt$file, ".qc.pvar"), paste0(outpath, "/genotypes/", opt$file, ".qc.psam"))}),

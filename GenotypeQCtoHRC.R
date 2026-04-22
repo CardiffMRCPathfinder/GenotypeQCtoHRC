@@ -65,6 +65,8 @@ option_list = list(
               help="Minimum male X-linked homozygosity.\n\t\t[default= %default]", metavar="0-1"),
   make_option("--qc4", type="logical", default=F, 
               help="Perform population structure and relatedness checks?\n\t\t[default= %default]", metavar="TRUE/FALSE"),
+  make_option("--qc4-mom", type="logical", default=F, 
+              help="Perform initial relatedness check using PLINK method-of-moment estimates?.\n\t\tUse of this option is reccomended if available memory is a concern.\n\t\t[default= %default]", metavar="TRUE/FALSE"),			  
   make_option("--qc4-maf", type="numeric", default=0.05, 
               help="Minor Allele Frequency used to distinguish common from rare variants.\n\t\tValues of at least MAF=1/sqrt(2*N) are reccomended, where N= number of genotyped individuals.\n\t\t[default= %default]", metavar="0-1"),
   make_option("--qc4-pcair", type="integer", default=10, 

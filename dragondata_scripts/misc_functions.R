@@ -90,14 +90,18 @@ plink_rename_snp <- function(bfile, reffile, outfile, outdir, ncores, PLINK2, PL
   bim <- mutate(bim,chrpos=paste(CHR,BP,sep = ":"))
   bim.keep <- subset(bim, grepl("rs",SNP) & !(SNP %in% pvar.match$SNP), select=c("SNP","chrpos"))
   write.table(bim.keep$SNP,file=paste0(pfile,".TMP.r2.flip"), col.names = F, row.names = F, quote = F)
-  ## Flip RS matches again
-  system2(PLINK1, args=paste0(" --threads ",ncores," --bfile ",pfile,".TMP.r2 --extract ",pfile,".TMP.r2.flip --flip ",pfile,".TMP.r2.flip --make-bed --out ",pfile,".TMP.r2b"))
+  ## Flip RS matches again (if appropriate)
+  if (length(bim.keep$SNP) > 0) {
+  system2(PLINK1, args=paste0(" --threads ",ncores," --bfile ",pfile,".TMP.r2 --extract ",pfile,".TMP.r2.flip --flip ",pfile,".TMP.r2.flip --make-bed --out ",pfile,".TMP.r2b"))}
   ## Extract matched markers from pass 1 and unmatched markers from pass 2 from fist pass file
   pvar.keep <- rbind(pvar.match,subset(pvar.flip,!chrpos %in% bim.keep$chrpos))
   write.table(pvar.keep$SNP,file=paste0(pfile,".TMP.r1.noflip"), col.names = F, row.names = F, quote = F)
   system2(PLINK2, args=paste0(" --threads ",ncores," --pfile ",pfile,".TMP.r1 --extract ",pfile,".TMP.r1.noflip --output-chr 26 --make-bed --out ",pfile,".TMP.r1a"))
   # Merge and convert to PLINK2 standard format
+  if (length(bim.keep$SNP) > 0) {
   system2(PLINK1, args=paste0(" --threads ",ncores," --bfile ",pfile,".TMP.r1a --bmerge ",pfile,".TMP.r2b --make-bed --out ",outfile,".TMP"))
+  } else {
+  system2(PLINK1, args=paste0(" --threads ",ncores," --bfile ",pfile,".TMP.r1a --make-bed --out ",outfile,".TMP")) }
   system2(PLINK2, args=paste0(" --threads ",ncores," --bfile ",outfile,".TMP -output-chr MT --make-pgen --sort-vars --out ",outfile,".TMP.2"))
   system2(PLINK2, args=paste0(" --threads ",ncores," --pfile ",outfile,".TMP.2 --make-bed --out ",outfile))
   bim.output <- read_table(paste0(outfile,".bim"), c("CHR","SNP","cm","BP","A1","A2"),col_types="ccdicc")
